@@ -939,6 +939,22 @@ float mapHyper(vec3 p){
 }
 /* tiled tunnel: polygonal cross-section, tiles round the wall, gold ribs, wall breathes and twists */
 float mapTunnel(vec3 p){
+  if(gFQ.y>1.5){   /* DNA staircase tunnel (Nexus 'd'Architecture': a "DNA staircase" tunnel, slow helices, gradual; hospital-study volunteer: DNA spirals and cellular tubes): a tube with a double helix of glowing strands and rungs like steps winding down its length, a clear lane at the centre */
+    vec2 q=p.xy-vec2(0.5*gCell);float r=length(q);
+    float R=gFP.x*1.5;
+    float tw=p.z*0.7+uTime*0.15;
+    float rs=R*0.62;
+    vec2 s1=rs*vec2(cos(tw),sin(tw));
+    float dS=min(length(q-s1),length(q+s1))-0.17;
+    float zc=floor(p.z/0.9+0.5)*0.9;float a2=zc*0.7+uTime*0.15;
+    vec2 qr=rot(-a2)*q;
+    float rung=max(max(abs(qr.x)-rs,0.0)*0.0+max(abs(qr.x)-rs,0.35*rs-abs(qr.x)),max(abs(qr.y)-0.05,abs(p.z-zc)-0.09));
+    float wall=R-r;
+    float d12=min(wall,min(dS*0.6,rung));
+    gMat=(d12==wall)?1.0:5.0;gUV=vec2(atan(q.y,q.x)*2.0,p.z*0.8);
+    gTrap=vec3((d12==wall)?0.2:0.7,fract(p.z*0.1),0.5);
+    return d12*0.7;
+  }
   vec2 q=p.xy-vec2(0.5*gCell);
   float tm=uTime;
   float R=gFP.x*(1.0+0.05*sin(p.z*0.9+tm*0.3));
@@ -1052,9 +1068,17 @@ float mapCath(vec3 p){
   /* transverse ribs: thin arch following the section */
   float rib=max(abs(zr)-0.1,-(dN)-0.0)*0.0+max(abs(zr)-0.09,abs(dN)-0.12);
   float dd=min(min(d,pil),rib);
+  float pewD=1e3;
+  if(gFQ.x>0.5){   /* church (church 2 place words): rows of wooden pews either side of a central aisle */
+    float pz=fract(p.z/(Pd*0.22)+0.5)-0.5;
+    vec3 pb=vec3(abs(q.x)-(0.45+Wd*0.3),q.y-(yF+0.4),pz*Pd*0.22);
+    pewD=max(max(abs(pb.x)-Wd*0.22,abs(pb.y)-0.4),abs(pb.z)-0.14);
+    dd=min(dd,pewD);
+  }
   /* clerestory windows carved into the wall between pillars */
   float win=sdArch(vec2(zr,q.y-(yF+1.4)),Pd*0.17,1.9);
-  if(dd==dF){gMat=3.0;gUV=vec2(q.x*1.2,p.z*1.2);}
+  if(dd==pewD){gMat=5.0;gUV=vec2(p.z*3.0,q.x*2.0);}
+  else if(dd==dF){gMat=3.0;gUV=vec2(q.x*1.2,p.z*1.2);}
   else if(dd==pil){gMat=5.0;gUV=vec2(atan(px,zr)*1.5,q.y*1.5);}
   else if(dd==rib){gMat=5.0;gUV=vec2(zr*5.0,q.y);}
   else if(win<0.0&&dN<0.35){gMat=4.0;gUV=vec2(zr*3.0,(q.y-yF)*3.0);}
@@ -1150,7 +1174,7 @@ float mapRoom(vec3 p){
     gMat=7.0;gUV=uvw*1.2;dd=d;
     if(dx<dy&&dx<dz&&abs(r.z)<hs.z*0.45&&abs(r.y+hs.y*0.1)<hs.y*0.55){gMat=9.0;gUV=vec2(id*0.37+(r.x>0.0?0.0:1.7),0.0);}
   } else if(md>7.5&&md<8.5){   /* examination or operating room (Kagan: 9% of environments): a bright white tiled room, an operating slab on a pedestal under a ring of lights; reports: bright white room with beings in grey suits and white gloves, an operating theatre with comic surgeons, four beings looking down as at an operating table */
-    gMat=10.0;gUV=uvw*0.5;dd=d;
+    gMat=15.0;gUV=uvw*0.5;dd=d;
     float slab=length(max(abs(r-vec3(0.0,-hs.y+0.95,0.0))-vec3(0.55,0.1,1.2),0.0))-0.05;
     float ped=max(length(r.xz)-0.2,abs(r.y+hs.y*0.5-0.45)-(hs.y*0.5-0.45));
     float ring=length(vec2(length(r.xz)-1.0,r.y-hs.y*0.55))-0.07;
@@ -1158,16 +1182,42 @@ float mapRoom(vec3 p){
     float ob=min(min(slab,ped),min(ring,disc));
     dd=min(d,ob);
     if(dd==ob){gMat=0.0;gTrap=vec3((ring<slab&&ring<disc)||disc<slab?0.02:0.45,0.5,0.9);return dd*0.7;}
+  } else if(md>11.5){   /* staircase room (stairs 1 and corkscrew stairwells in the notes; a basement hallway bending with its stairs visible round the corner; Escher-like gravity is a candidate, not sourced): flights of stairs rising along the floor, a side wall and the ceiling, each in a different direction */
+    gMat=3.0;gUV=uvw*0.8;
+    float stp=min(hs.x,hs.y)*0.05;float sw=0.55*stp/0.22;
+    float yA=-hs.y+stp*clamp(floor((r.z+hs.z)/sw),0.0,14.0);
+    float fA=max(r.y-yA,abs(r.x-hs.x*0.6)-hs.x*0.3);
+    float xB=hs.x-stp*clamp(floor((r.y+hs.y)/sw),0.0,14.0);
+    float fB=max(xB-r.x,abs(r.z+hs.z*0.1)-hs.z*0.2);
+    float yC=hs.y-stp*clamp(floor((r.x+hs.x)/sw),0.0,14.0);
+    float fC=max(yC-r.y,abs(r.z-hs.z*0.4)-hs.z*0.2);
+    float fs=min(fA,min(fB,fC));
+    dd=min(d,fs);
+    if(dd==fs){gMat=5.0;gUV=vec2(r.x+r.z,r.y+r.z)*1.5;}
+  } else if(md>10.5){   /* spaceship deck (Nexus 'd'Architecture': a spaceship deck with views of galaxies; space station with a platform; ship 2, spaceship 1): ribbed metal panels, long windows onto stars and a galaxy */
+    gMat=3.0;gUV=uvw*0.8;dd=d;
+    float rib=length(max(abs(vec2(fract(r.z/2.2+0.5)-0.5,0.0))-vec2(0.04,0.0),0.0));
+    if(abs(r.x)>hs.x*0.82&&abs(r.y+hs.y*0.05)<hs.y*0.55&&abs(fract(r.z/2.2+0.5)-0.5)>0.05){gMat=16.0;gUV=vec2(r.z*0.5+id*3.0,r.y*0.5)+vec2(r.x>0.0?0.0:7.0,0.0);}
+  } else if(md>9.5){   /* labyrinth / maze (place words: labyrinth 2, maze 1; Nexus/Kagan corridors, halls, stairs and mazes 20; a black-ink maze of interlocking corridors; a luminous maze): an endless grid of walls with gaps, a lit lane to start in */
+    float cs=2.6;vec2 id2=floor(r.xz/cs+0.5);vec2 l=r.xz-id2*cs;
+    float hA=hash21(id2+id*5.0+1.3),hB=hash21(id2+id*5.0+7.9);
+    bool lane=(id2.x==0.0||id2.x==-1.0);
+    float wa=(lane?hA>0.12:hA>0.5)?max(abs(l.x-cs*0.5)-0.1,abs(l.y)-cs*0.5-0.1):1e3;
+    float wb=(!lane&&hB>0.45)?max(abs(l.y-cs*0.5)-0.1,abs(l.x)-cs*0.5-0.1):1e3;
+    float wy=min(wa,wb);wy=max(wy,abs(r.y)-hs.y);
+    dd=min(dy,wy);
+    gMat=(dd==dy)?((r.y<0.0)?3.0:10.0):1.0;gUV=(dd==dy)?r.xz*0.6:((wa<wb)?vec2(r.z*0.8,r.y*0.8):vec2(r.x*0.8,r.y*0.8));
   } else if(md>8.5){   /* cave / womb / inside a body (340 reports: caves, cells, womb 28; caves 8% of environments): organic displaced walls, stalactites and stalagmites, veined glowing surface */
-    float dis=0.5*sin(r.x*1.1+tm*0.1+sin(r.y*0.9+r.z*0.5))*sin(r.y*1.3+2.0*sin(r.z*0.7))+0.22*sin(r.z*2.1+r.x*1.7+tm*0.15);
-    dd=d-dis*0.9;
+    float dis=0.32*sin(r.x*1.1+tm*0.1+sin(r.y*0.9+r.z*0.5))*sin(r.y*1.3+2.0*sin(r.z*0.7))+0.1*sin(r.z*2.1+r.x*1.7+tm*0.15);
+    dd=min(dx,dy)-dis*0.9;   /* one continuous tunnel: no end walls or doorways, which showed as a rectangular patch
+    */
     vec2 sc2=floor(r.xz/1.5+0.5);vec2 cl2=r.xz-sc2*1.5;float hs2=hash21(sc2+id*3.1);
     float ly=0.5+1.6*hs2;
     float syc=hs.y-r.y,syf=r.y+hs.y;
-    float st1=(hs2>0.45)?max(length(cl2)-0.26*clamp(1.0-syc/ly,0.0,1.0),-(syc)):1e3;
-    float st2=(hs2<0.55)?max(length(cl2)-0.22*clamp(1.0-syf/(ly*0.8),0.0,1.0),-(syf)):1e3;
+    float st1=(hs2>0.45)?max(max(length(cl2)-0.26*clamp(1.0-syc/ly,0.0,1.0),-(syc)),syc-ly):1e3;
+    float st2=(hs2<0.55)?max(max(length(cl2)-0.22*clamp(1.0-syf/(ly*0.8),0.0,1.0),-(syf)),syf-ly*0.8):1e3;
     dd=min(dd,min(st1,st2));
-    gMat=14.0;gUV=vec2(atan(r.x,r.y)*1.3,r.z*0.5+0.3*dis);
+    gMat=14.0;gUV=vec2(r.x*0.9+r.y*0.8,r.z*0.5+0.3*dis+0.4*r.y);dd*=0.75;   /* continuous coordinates (no seam); smaller steps because the displaced walls are not a true distance */
   } else if(md>5.5){   /* hive (6) and code (7): the room itself carries the pattern */
     gMat=(md<6.5)?11.0:12.0;gUV=uvw*((md<6.5)?0.9:0.55);dd=d;
   } else {             /* Legoland: bricks with studs, rebuilding themselves all the time */
@@ -1198,6 +1248,110 @@ float mapPyr(vec3 p){
   float d=dg;
   float steps=gFP.y;
   float sh=gFP.w*(0.6+h*0.8);
+  if(gFQ.x>10.5){   /* Babylonian garden palace (one report: a palace with Babylonian-style gardens and rivers and mosque-like glass patterns on every wall; also garden 7, palace 1): stepped terraces with arched colonnades, green planted tops, water channels between courts */
+    vec3 b=vec3(q2.x,p.y-yF,q2.y);
+    float ax=max(abs(b.x),abs(b.z));
+    float st=1e3;
+    for(int k=0;k<4;k++){float fk=float(k);float hk=0.7*(fk+1.0)*(0.8+0.4*h);float wk=2.6-0.55*fk;
+      st=min(st,max(max(abs(b.x),abs(b.z))-wk,abs(b.y-hk*0.5)-hk*0.5));}
+    float arch=0.5*(abs(fract(b.x*0.9)-0.5)+abs(fract(b.z*0.9)-0.5));
+    float cut=length(vec2(fract(b.x*0.9+0.5)-0.5,b.y-0.9))-0.28;
+    st=max(st,-cut*0.5);
+    float riv=abs(abs(b.x)-3.4)-0.22;
+    float dgr=p.y-(yF-0.12*step(riv,0.0));
+    float d11=min(dgr,st);
+    bool top=(d11==st)&&b.y>0.5;
+    gMat=(d11==dgr)?((riv<0.0)?0.0:10.0):4.0;
+    gUV=vec2(b.x*0.9+h*5.0,b.z*0.9+b.y);
+    gTrap=vec3(riv<0.0?0.75:(0.25+0.5*h+0.15*sin(b.y*5.0)),0.5,fract(h*3.0));
+    return d11*0.6;
+  }
+  if(gFQ.x>9.5){   /* castle (castle 2 place words, 86 scene sentences; "Disney castle made of neon lace"; geometric castles destroyed and recreated; palace/castle gold, crystal, jewels): walled courts with round corner towers, crenellated walls, a tall keep with a conical spire */
+    float S=2.6;float hh=sh*(2.2+1.6*h);
+    vec3 b=vec3(q2.x,p.y-yF,q2.y);
+    float dT=1e3;
+    vec2 cq=vec2(abs(b.x)-S,abs(b.z)-S);
+    float tw=max(length(cq)-0.62,b.y-hh);
+    float tr=0.62*(1.0-clamp((b.y-hh)/(hh*0.5),0.0,1.0));
+    float roof=max(length(cq)-0.8*(1.0-clamp((b.y-hh)/(hh*0.55),0.0,1.0)),max(hh-b.y,b.y-hh*1.55));
+    dT=min(tw,roof);
+    float wh=hh*0.55;
+    float wl=max(max(abs(max(abs(b.x),abs(b.z))-S)-0.16,b.y-wh),-1e3);
+    float cren=step(0.0,sin((b.x+b.z)*6.0));
+    wl=max(wl,b.y-(wh-0.22*cren));
+    float gate=max(abs(b.x)-0.45,b.y-wh*0.62);
+    wl=max(wl,-max(gate,-(abs(b.z)-S+0.5)*0.0-abs(b.z)+S-0.5));
+    dT=min(dT,wl);
+    float kh=hh*1.2;
+    float keep=max(length(b.xz)-0.9,b.y-kh);
+    float kr=max(length(b.xz)-1.05*(1.0-clamp((b.y-kh)/(hh*1.3),0.0,1.0)),max(kh-b.y,b.y-kh-hh*1.3));
+    dT=min(dT,min(keep,kr));
+    float win=step(0.8,abs(sin(b.y*5.0)))*step(0.8,abs(sin(atan(b.z,b.x)*6.0)));
+    float d10=min(dg,dT);
+    gMat=(d10==dg)?10.0:4.0;gUV=vec2(b.y*1.2+h*5.0,(b.x+b.z)*0.9);
+    gTrap=vec3(0.3+0.5*h+0.3*win,0.5,fract(h*5.0));
+    return d10*0.6;
+  }
+  if(gFQ.x>8.5){   /* forest (nature words: forest, trees, flowers in 56 reports; a big oak tree with a swing; an orchard of fruit as big as the person): dense conifer-like trees on a mossy ground, glowing */
+    float tr=hash21(id);float d8=dg;
+    if(tr>0.25){
+      float th=sh*(2.0+3.0*tr);vec3 b=vec3(q2.x+0.35*(tr-0.5),p.y-yF,q2.y);
+      float trunk=max(length(b.xz)-0.12,abs(b.y-th*0.25)-th*0.25);
+      float cone=1e3;
+      for(int k=0;k<3;k++){float fk=float(k);float y0=th*(0.25+0.22*fk);float hk=th*(0.55-0.12*fk);float rk=(0.75-0.18*fk)*(0.8+0.4*tr);
+        float tt=clamp((b.y-y0)/hk,0.0,1.0);cone=min(cone,max(length(b.xz)-rk*(1.0-tt),max(y0-b.y,b.y-y0-hk)));}
+      d8=min(d8,min(trunk,cone));
+    }
+    gMat=(d8==dg)?10.0:0.0;gUV=p.xz*0.3;gTrap=vec3(0.2+0.5*tr+0.1*sin(p.y*1.5),0.5,tr);
+    return d8*0.6;
+  }
+  if(gFQ.x>7.5){   /* mountains: ridged peaks under a low sun, pale summits (place words: mountain 2; mountains, sea, lakes in survey reports) */
+    float rx=p.x-c0.x,rz=p.z;
+    float r1=1.0-abs(sin(rx*0.11+1.6*sin(rz*0.07)));float r2=1.0-abs(sin(rz*0.09+rx*0.05+2.0));
+    float hgt=sh*5.0*pow(max(r1*r2,0.0),1.4)+0.25*sh*sin(rx*0.9)*sin(rz*0.8);
+    float d7=(p.y-(yF+hgt))*0.45;
+    gMat=0.0;gUV=p.xz*0.3;gTrap=vec3(0.15+0.7*clamp(hgt/(sh*5.0),0.0,1.0),0.5,0.4+0.2*r1);
+    return d7;
+  }
+  if(gFQ.x>6.5){   /* crystal world: an infinite plane of faceted glassy prisms with pointed tops, beautiful but static (QRI progression: many separate crystal worlds with caves, columns and mirror chambers; fractal-crystal halls; large crystalline prisms in sparkling empty space) */
+    vec2 rq=rot(h*6.0)*q2;
+    float ch=sh*(0.6+3.2*h*h);
+    float wd=0.55*(1.0-clamp((p.y-yF-ch*0.65)/(ch*0.35),0.0,1.0))*(0.7+0.3*h);
+    float cr=max(max(abs(rq.x),abs(rq.y))-wd,p.y-yF-ch);
+    vec2 rq2=rot(h*9.0+1.0)*(q2-vec2(0.9,0.6));
+    float ch2=ch*0.45;float wd2=0.3*(1.0-clamp((p.y-yF-ch2*0.6)/(ch2*0.4),0.0,1.0));
+    float cr2=max(max(abs(rq2.x),abs(rq2.y))-wd2,p.y-yF-ch2);
+    float d6=min(dg,(h>0.25)?min(cr,cr2):1e3);
+    gMat=(d6==dg)?10.0:4.0;gUV=vec2(p.y*1.6+h*9.0,(rq.x+rq.y)*2.5);
+    gTrap=vec3(h*2.0,0.5,fract(h*7.0));
+    return d6*0.6;
+  }
+  if(gFQ.x>4.5){   /* ocean: a wide, slowly heaving sea under a low sun, rocky spires and small bright islands (reports: ocean 3; a black ocean raced down breathing; rivers of light; sea and lakes in Shanon excluded) */
+    bool des=gFQ.x>5.5;
+    float w=des?(0.9*sin(p.x*0.14+0.6*sin(p.z*0.09))*sin(p.z*0.11)+0.25*sin(p.x*0.5+p.z*0.35)):(0.22*sin(p.x*0.6+uTime*0.5)*sin(p.z*0.45-uTime*0.4)+0.1*sin(p.x*1.3-p.z*0.9+uTime*0.8));
+    float dgw=p.y-(yF+w);float dd3=dgw;
+    float hsp=hash21(id);
+    if(hsp>0.8){float ph=sh*(1.5+4.0*hsp);vec3 b=vec3(q2.x,p.y-(yF+ph*0.5),q2.y);float rad=0.5*(1.0-clamp((p.y-yF)/ph,0.0,1.0)*0.85)+0.1;dd3=min(dd3,max(length(b.xz)-rad,abs(b.y)-ph*0.5));}
+    bool onS=(dd3==dgw);
+    gMat=onS?0.0:10.0;gUV=p.xz*0.25;
+    float bnd=des?abs(sin(p.x*1.3+p.z*0.8+w*5.0)):abs(sin(p.x*0.8+p.z*0.5+uTime*0.6+w*7.0));   /* wave or ripple crests as moving glowing bands */
+    gTrap=vec3(onS?0.45*bnd:0.5,0.5+0.2*w,hsp);
+    return dd3*(des?0.45:0.55);
+  }
+  if(gFQ.x>3.5){   /* temple: a platform with rows of tall columns joined by stone lintels, open to the sky (place words: temple 8, the commonest named place; Michael 2021: temples, culture styles reminiscent of Egyptian, Mayan, Aztec, Indian) */
+    float plat=p.y-(yF+0.35*step(abs(id.x),3.5)*step(abs(id.y),3.5));
+    float d4=plat;
+    float col=max(length(q2)-0.2*(1.0+0.12*sin(p.y*6.0)),abs(p.y-(yF+sh*1.5))-sh*1.5);
+    float lx=length(max(abs(vec3(q2.x,p.y-(yF+sh*3.0),q2.y*0.0))-vec3(C2.x*0.5,0.14,0.0),0.0));lx=max(lx,abs(q2.y)-0.3);
+    float lz=length(max(abs(vec3(q2.x*0.0,p.y-(yF+sh*3.0),q2.y))-vec3(0.0,0.14,C2.y*0.5),0.0));lz=max(lz,abs(q2.x)-0.3);
+    float cap=length(max(abs(vec3(q2.x,p.y-(yF+sh*3.0-0.1),q2.y))-vec3(0.34,0.06,0.34),0.0));
+    float inT=step(abs(id.x),3.5)*step(abs(id.y),3.5);
+    float obj=(inT>0.5)?min(min(col,cap),min(lx,lz)):1e3;
+    d4=min(d4,obj);
+    gMat=(d4==plat)?3.0:1.0;gUV=(gMat>2.5)?p.xz*0.5:vec2(atan(q2.y,q2.x)*1.2,p.y*1.4);
+    gTrap=vec3(0.3,0.5,0.9);
+    return d4*0.6;
+  }
   if(gFQ.x>2.5){   /* garden of extraordinary beauty (Michael 2021, 'gardens... rivers and everything'; meadows to the horizon): a green meadow with a winding river and rounded trees; low orange sun from the pyramid family */
     float rv=p.x-c0.x-4.0*sin(p.z*0.11)-1.5*sin(p.z*0.31);
     float rb=smoothstep(1.8,0.8,abs(rv));
@@ -1559,6 +1713,121 @@ float beingOne(vec3 c,float ty,float sd){
     }
     return d;
   }
+  if(ty>16.5&&ty<17.5){   /* stone entity: a hulking granite figure of heavy blocks, cracked edges (report 178: an entity made of stone or granite) */
+    float cr=0.015*sin(c.y*31.0+c.x*17.0)*sin(c.z*23.0);
+    float d=length(max(abs(c-vec3(0.0,0.1,0.0))-vec3(0.3,0.33,0.2),0.0))-0.05;
+    d=min(d,length(max(abs(c-vec3(0.0,0.62,0.02))-vec3(0.15,0.14,0.14),0.0))-0.04);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    d=min(d,length(max(abs(a-vec3(0.45,0.15+0.05*sin(t*0.4),0.0))-vec3(0.1,0.3,0.1),0.0))-0.04);
+    d=min(d,length(max(abs(a-vec3(0.2,-0.6,0.0))-vec3(0.13,0.35,0.13),0.0))-0.04);
+    d=min(d,length(max(abs(a-vec3(0.45,-0.2,0.05))-vec3(0.1,0.12,0.1),0.0))-0.04);   /* fist */
+    return d+cr;
+  } else if(ty>17.5&&ty<18.5){   /* ghost made of ice: a smoky translucent figure tapering into drifting wisps, hollow eyes (report 136: a smoky translucent being like a ghost made of ice, speaking through symbols) */
+    float wob=0.07*sin(c.y*3.0-t*1.2);c.x+=wob;
+    float rb=mix(0.34,0.05,smoothstep(-0.95,0.4,c.y));
+    float d=max(length(c.xz)-rb,abs(c.y+0.25)-0.7)*0.8;
+    float hd=length((c-vec3(0.0,0.62,0.0))*vec3(1.0,1.15,1.0))-0.17;
+    hd=max(hd,-(length(c-vec3(0.06,0.64,0.13))-0.04));hd=max(hd,-(length(c-vec3(-0.06,0.64,0.13))-0.04));   /* hollow eyes */
+    d=smin(d,hd,0.07);
+    for(int i=0;i<4;i++){float fi=float(i);vec3 b=vec3(0.0,-0.9,0.0);vec3 e=vec3(0.3*sin(t*0.6+fi*1.6),-1.3-0.1*fi,0.3*cos(t*0.6+fi*1.6));d=min(d,sdSeg(c,b,e,0.03));}
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    d=smin(d,sdSeg(a,vec3(0.1,0.35,0.0),vec3(0.3,0.1+0.05*sin(t*0.9),0.1),0.04),0.05);
+    return d;
+  } else if(ty>18.5&&ty<19.5){   /* skull clown: a small floating skull in a belled two-horned cap with a ruff; violet sparks come off it (report 116: little skull clowns emitting violet sparks from their mouths as tinkling sounds) */
+    float sk=length((c-vec3(0.0,0.3,0.0))*vec3(1.0,1.05,1.0))-0.26;
+    sk=max(sk,-(length((c-vec3(0.09,0.33,0.2))*vec3(1.0,1.1,1.0))-0.07));sk=max(sk,-(length((c-vec3(-0.09,0.33,0.2))*vec3(1.0,1.1,1.0))-0.07));
+    sk=max(sk,-(length((c-vec3(0.0,0.22,0.24))*vec3(1.4,1.0,1.0))-0.035));
+    float jaw=length((c-vec3(0.0,0.05+0.03*sin(t*5.0),0.08))*vec3(1.0,0.7,1.0))-0.15;
+    float d=min(sk,jaw);
+    d=min(d,length(vec2(length(c.xz)-0.2-0.025*step(0.5,sin(atan(c.z,c.x)*9.0)),c.y+0.1))-0.04);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    vec3 tip=vec3(0.45,0.78+0.06*sin(t*2.5),0.0);
+    d=min(d,sdSeg(a,vec3(0.1,0.5,0.0),vec3(0.3,0.72,0.0),0.045));d=min(d,sdSeg(a,vec3(0.3,0.72,0.0),tip,0.035));d=min(d,length(a-tip)-0.07);
+    for(int k=0;k<5;k++){float fk=float(k);float ph=fract(t*0.7+fk*0.2);d=min(d,length(c-vec3(0.1*sin(fk*3.0),0.1,0.25+ph*0.9)-vec3(0.0,0.1*ph*sin(fk*5.0),0.0))-0.025*(1.0-ph));}   /* sparks leaving the mouth */
+    return d;
+  } else if(ty>19.5&&ty<20.5){   /* bee being: striped abdomen, thorax, big-eyed head, four buzzing wings, jointed legs (Strassman: hive with an intelligent bee-like being, friendly, warm sensual energy) */
+    float d=length((c-vec3(0.0,-0.3,-0.1))*vec3(1.0,0.9,0.7))-0.28;
+    d=min(d,length((c-vec3(0.0,0.15,0.0))*vec3(1.0,1.0,1.1))-0.2);
+    float hd=length((c-vec3(0.0,0.5,0.1))*vec3(1.0,1.0,1.1))-0.15;
+    d=smin(d,hd,0.04);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    d=min(d,length((a-vec3(0.09,0.54,0.2))*vec3(1.0,0.8,1.0))-0.07);
+    d=min(d,sdSeg(a,vec3(0.04,0.64,0.15),vec3(0.14,0.9+0.04*sin(t*2.0),0.2),0.008));
+    float fl=sin(t*40.0)*0.25;
+    for(int w=0;w<2;w++){float fw=float(w);vec3 wc=a-vec3(0.28+0.1*fw,0.3-0.05*fw,-0.05-0.1*fw);wc.yz=rot(fl*(1.0-fw*0.4))*wc.yz;d=min(d,max(length(wc*vec3(0.5,1.0,2.2))-0.2,abs(wc.x)-0.01+0.0));}
+    for(int l=0;l<3;l++){float fl2=float(l);d=min(d,sdSeg(a,vec3(0.08,0.1-fl2*0.12,0.05),vec3(0.2,-0.2-fl2*0.15,0.1+0.1*fl2),0.015));}
+    return d;
+  }
+  if(ty>20.5&&ty<21.5){   /* being in a grey chemical suit with big white gloves and a visored helmet (exam-room report: a bright white room with beings in grey chemical suits and big white gloves; operating theatre with surgeons) */
+    c.x+=0.02*sin(t*0.9);
+    float d=sdSeg(c,vec3(0.0,-0.15,0.0),vec3(0.0,0.35,0.0),0.17);
+    d=smin(d,length((c-vec3(0.0,-0.2,0.0))*vec3(1.0,0.8,1.0))-0.18,0.1);
+    d=smin(d,length((c-vec3(0.0,0.62,0.0)))-0.16,0.06);
+    d=max(d,-(length((c-vec3(0.0,0.62,0.12))*vec3(1.3,0.8,1.0))-0.09)*1.0+0.0);
+    d=min(d,length((c-vec3(0.0,0.62,0.11))*vec3(1.25,0.7,0.5))-0.085);   /* visor */
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    vec3 sh=vec3(0.2,0.3,0.0),el=vec3(0.3,0.05,0.1),wr=vec3(0.3,-0.12+0.1*sin(t*1.2),0.3);
+    d=smin(d,sdSeg(a,sh,el,0.07),0.05);d=smin(d,sdSeg(a,el,wr,0.065),0.05);
+    d=smin(d,length((a-wr-vec3(0.0,-0.04,0.03))*vec3(1.0,1.2,1.0))-0.085,0.04);   /* big glove */
+    d=smin(d,sdSeg(a,vec3(0.09,-0.3,0.0),vec3(0.1,-0.65,0.04),0.085),0.05);d=smin(d,sdSeg(a,vec3(0.1,-0.65,0.04),vec3(0.11,-0.95,0.0),0.07),0.05);
+    d=min(d,length(max(abs(a-vec3(0.11,-1.0,0.07))-vec3(0.07,0.04,0.12),0.0))-0.02);
+    return d;
+  }
+  if(ty>21.5&&ty<22.5){   /* grey alien: slender body, large pear-shaped head, very large dark eyes, long thin limbs (Atlas: Alien & Grey forms; Michael 2021: grey or mantis 2 of 36; aliens/celestial 16.3% in Lawrence) */
+    float d=sdSeg(c,vec3(0.0,-0.35,0.0),vec3(0.0,0.2,0.0),0.09);
+    d=smin(d,length((c-vec3(0.0,-0.3,0.0))*vec3(1.0,0.8,1.0))-0.11,0.06);
+    float hd=length((c-vec3(0.0,0.5,0.0))*vec3(1.0,0.8,1.0))-0.2;
+    hd=smin(hd,length((c-vec3(0.0,0.36,0.04))*vec3(1.3,1.0,1.0))-0.09,0.08);
+    d=smin(d,hd,0.05);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    d=min(d,length((a-vec3(0.1,0.5,0.14))*vec3(0.8,1.6,1.0))-0.075);   /* huge slanted eyes */
+    vec3 sh=vec3(0.09,0.12,0.0),el=vec3(0.18,-0.2+0.03*sin(t*0.7),0.06),wr=vec3(0.2,-0.5,0.12);
+    d=min(d,sdSeg(a,sh,el,0.022));d=min(d,sdSeg(a,el,wr,0.018));d=min(d,hand(a,wr+vec3(0.0,-0.03,0.0),vec3(0.0,-1.0,0.0),0.3));
+    d=min(d,sdSeg(a,vec3(0.05,-0.4,0.0),vec3(0.08,-0.75,0.03),0.03));d=min(d,sdSeg(a,vec3(0.08,-0.75,0.03),vec3(0.09,-1.05,0.0),0.024));
+    return d;
+  } else if(ty>22.5&&ty<23.5){   /* trooper: white armoured figure with a smooth helmet, dark visor, plates and joints, a stiff 'crash dummy crossed with a trooper but living, not robotic' (report 172) */
+    float sg=0.015*sin(t*1.5);
+    float d=length(max(abs(c-vec3(0.0,0.15,0.0))-vec3(0.17,0.26,0.11),0.0))-0.07;
+    d=min(d,length(max(abs(c-vec3(0.0,-0.2,0.0))-vec3(0.12,0.1,0.09),0.0))-0.05);
+    float hd=length((c-vec3(0.0,0.6,0.0))*vec3(1.0,1.05,1.0))-0.16;
+    hd=min(hd,-(0.0)+1e3);
+    d=min(d,hd);
+    d=min(d,length((c-vec3(0.0,0.6,0.1))*vec3(1.4,0.6,0.7))-0.1);   /* dark visor bulge */
+    d=min(d,length(vec2(length(c.xz)-0.17,c.y-0.43))-0.025);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    d=min(d,length(a-vec3(0.24,0.38,0.0))-0.075);
+    vec3 el=vec3(0.28,0.1,0.06),wr=vec3(0.26,-0.1+0.05*sin(t*1.1),0.18);
+    d=min(d,sdSeg(a,vec3(0.24,0.38,0.0),el,0.05));d=min(d,length(a-el)-0.055);d=min(d,sdSeg(a,el,wr,0.05));d=min(d,length(a-wr)-0.065);
+    vec3 kn=vec3(0.1,-0.55,0.04);
+    d=min(d,sdSeg(a,vec3(0.09,-0.28,0.0),kn,0.065));d=min(d,length(a-kn)-0.07);d=min(d,sdSeg(a,kn,vec3(0.1,-0.92,0.0),0.055));
+    d=min(d,length(max(abs(a-vec3(0.1,-0.98,0.06))-vec3(0.06,0.04,0.1),0.0))-0.02);
+    return d+sg*0.0;
+  } else if(ty>23.5&&ty<24.5){   /* animal-headed figure: a robed body in a tunic with a bird or reptile head on a long neck (a row of men in tunics with reptile or bird heads; Atlas: animal-headed figures) */
+    float ang=atan(c.z,c.x);
+    float rb=mix(0.34,0.12,smoothstep(-0.9,0.25,c.y))+0.05*exp(-pow((c.y-0.25)/0.15,2.0));
+    float d=max(length(c.xz)-rb*(1.0+0.05*sin(ang*7.0+c.y*3.0)),abs(c.y+0.3)-0.62)*0.85;
+    float nk=0.5+0.5*sin(t*0.6);
+    d=smin(d,sdSeg(c,vec3(0.0,0.3,0.0),vec3(0.0,0.62,0.06),0.07),0.05);
+    float hd=length((c-vec3(0.0,0.68,0.1))*vec3(1.0,1.0,1.2))-0.12;
+    hd=smin(hd,sdSeg(c,vec3(0.0,0.68,0.15),vec3(0.0,0.62-0.04*nk,0.46),0.05),0.04);   /* long beak or snout */
+    hd=min(hd,sdSeg(c,vec3(0.0,0.58,0.16),vec3(0.0,0.58-0.05*nk,0.38),0.03));
+    hd=min(hd,length(vec3(abs(c.x),c.y,c.z)-vec3(0.075,0.74,0.17))-0.03);
+    hd=min(hd,sdSeg(c,vec3(0.0,0.78,0.0),vec3(0.0,0.9,-0.12),0.03));   /* crest */
+    d=min(d,hd);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    vec3 sh=vec3(0.16,0.2,0.0),el=vec3(0.28,0.0,0.1),wr=vec3(0.28,-0.2+0.06*sin(t*1.1),0.26);
+    d=smin(d,sdSeg(a,sh,el,0.05),0.04);d=smin(d,sdSeg(a,el,wr,0.045),0.04);
+    d=min(d,hand(a,wr+vec3(0.0,-0.04,0.03),vec3(0.0,-1.0,0.3),0.5));
+    return d;
+  } else if(ty>24.5&&ty<25.5){   /* pulsating light sprite: a small bright, pulsing, Tinkerbell-like figure with four wings (Strassman volunteer: a 'Tinkerbell-like' pulsating entity in the patterns) */
+    float pu=0.8+0.2*sin(t*6.0);
+    float d=length(c-vec3(0.0,0.0,0.0))-0.12*pu;
+    d=smin(d,length((c-vec3(0.0,0.2,0.0))*vec3(1.0,1.0,1.0))-0.07,0.05);
+    vec3 a=vec3(abs(c.x),c.y,c.z);float fl=0.35*sin(t*28.0);
+    for(int w=0;w<2;w++){float fw=float(w);vec3 wc=a-vec3(0.16,0.05-0.12*fw,-0.04);wc.xy=rot(0.6-1.2*fw+fl)*wc.xy;d=min(d,max(length(wc*vec3(0.45,1.0,2.4))-0.2,abs(wc.z)-0.008));}
+    d=min(d,sdSeg(c,vec3(0.0,-0.1,0.0),vec3(0.0,-0.5,0.0),0.02+0.0*pu));
+    return d;
+  }
   /* swarm of small orbs */
   vec3 q=c*3.0;
   q+=0.3*vec3(sin(t+q.y*2.0),sin(t*0.8+q.z*2.0),sin(t*0.9+q.x*2.0));
@@ -1585,7 +1854,10 @@ float beings(vec3 p){
     if(gFam>0.5&&gFam<1.5||gFam>2.5&&gFam<4.5||gFam>5.5&&gFam<6.5||gFam>8.5) ctr+=bendOff(ctr.z);
     if(uBType>15.5&&uBType<16.5){float te=uTime*2.4+fi*2.0;ctr+=0.55*vec3(sin(te*1.3),0.6*sin(te*1.7+1.0),cos(te*1.1));}   /* elves dart about */
     if(uBS>0.01){   /* telepathy (74% of encounters): coloured speech that condenses into small lights drifting from the being toward the viewer (notes: machine elves, McKenna) */
-      for(int k=0;k<4;k++){
+      vec3 cam0=vec3(0.5*C,0.5*C,uZ);
+      float sgd=sdSeg(p,ctr,cam0,0.0)-0.3;   /* the orbs stay within 0.3 of the line from the being to the viewer: far from it, skip them but keep a safe lower bound for the march */
+      if(sgd>0.0){dmin=min(dmin,sgd);}
+      else for(int k=0;k<4;k++){
         float fk=float(k);float ph=fract(uTime*0.22+fk*0.25+fi*0.13);
         vec3 op=mix(ctr,vec3(0.5*C,0.5*C,uZ),ph*0.9)+0.12*vec3(sin(uTime*2.0+fk*3.0),cos(uTime*1.7+fk*2.0),0.0);
         float rad=0.05*uBS*smoothstep(0.0,0.15,ph)*(1.0-smoothstep(0.7,0.9,ph))*smoothstep(0.5,0.85,0.5+0.5*sin(uTime*0.35+fi*2.0));
@@ -1598,6 +1870,7 @@ float beings(vec3 p){
     c.xz=rot(0.3*sin(uTime*0.2+fi))*c.xz;
     if(uBM>0.01){c.xz=rot(uBM*0.9*sin(uTime*0.4+c.y*2.5+fi))*c.xz;c+=uBM*0.07*sin(c.yzx*5.0/sz+uTime*vec3(1.1,0.9,1.3));}   /* shape-shifting: constant morphing, oozing, folding and unfolding */
     {vec3 u3=c/sz;float bd=beingOne(u3,uBType,fi);
+     if(length(p-vec3(0.5*C,0.5*C,uZ))<18.0)   /* the relief is below a pixel beyond this distance, so skip the sines there */
      bd+=0.014*sin(17.0*u3.x+uTime*0.6+fi)*sin(19.0*u3.y-uTime*0.5)*sin(15.0*u3.z+uTime*0.4)+0.006*sin(47.0*u3.y+9.0*sin(u3.x*11.0+uTime));   /* fine relief that keeps changing (reports: intricate, constantly transforming surface detail) */
      dmin=min(dmin,bd*0.8*sz);}
   }
@@ -1610,6 +1883,19 @@ vec2 hash22(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(26
 vec3 gAlb=vec3(0.0),gEmi=vec3(0.0);float gGl=0.0,gAoOn=1.0;
 void surfM(float m,vec2 uv,vec3 tp,float ndv){
   gAoOn=1.0;
+  if(m>15.5){   /* window onto space: black with stars and a slow spiral galaxy */
+    vec2 gp=uv*1.5;float a=atan(gp.y,gp.x),rr=length(gp);
+    float spir=smoothstep(0.55,1.0,0.5+0.5*sin(a*2.0-rr*6.0+uTime*0.05))*exp(-rr*0.8);
+    float st=step(0.985,hash21(floor(uv*55.0)))*(0.6+0.4*sin(uTime*2.0+hash21(floor(uv*55.0))*30.0));
+    float st2=step(0.995,hash21(floor(uv*17.0)+3.0));
+    gAlb=vec3(0.0);gEmi=vec3(0.9,0.95,1.0)*(st+2.0*st2)+gPC*spir*0.9+gPB*0.04;gGl=0.0;
+    return;
+  }
+  if(m>14.5){   /* clinical wall: pale tiles with dark grout lines and a faint sheen (examination room) */
+    vec2 f=fract(uv*2.0)-0.5;float grout=smoothstep(0.44,0.5,max(abs(f.x),abs(f.y)));
+    gAlb=mix(gPD*0.55+gPA*0.06,vec3(0.03),grout);gEmi=gPA*0.09*(1.0-grout)+gPC*0.03;gGl=0.6;
+    return;
+  }
   if(m>13.5){   /* veined organic surface: dark flesh or rock with glowing veins and pulsing nodes (cave, womb, cell) */
     float v1=abs(sin(uv.x*3.0+1.6*sin(uv.y*2.2+uTime*0.25)));float v2=abs(sin(uv.y*4.1-1.2*sin(uv.x*1.7-uTime*0.2)));
     float ln=smoothstep(0.1,0.0,v1)+0.8*smoothstep(0.08,0.0,v2);
@@ -1866,6 +2152,15 @@ vec3 world(vec2 p){
       else if(bt>9.5&&bt<10.5){ col=mix(vec3(1.0,0.92,0.95),pal(pos.x*0.2+uTime*0.06),0.3)*(0.9+0.2*sin(sx*0.5-uTime));}   /* pale translucent plasma */
       else if(bt>10.5&&bt<11.5){ float g=0.5+0.5*sin(sy*0.9+pos.x*7.0);col=mix(vec3(0.25,0.27,0.3),vec3(1.0,1.0,1.05),smoothstep(0.35,0.7,g))*1.1+pal(0.6)*0.08;}   /* chrome: hard bright/dark reflection bands */
       else if(bt>11.5&&bt<12.5){ col=mix(vec3(0.12,0.12,0.13),vec3(1.0,0.9,0.6),smoothstep(0.55,0.75,pos.y-uBOff.y));}   /* dark pole, lit head */
+      else if(bt>21.5&&bt<22.5){ col=mix(vec3(0.5,0.52,0.5),vec3(0.8,0.82,0.78),smoothstep(0.5,1.0,0.5+0.5*sin(sy*0.5)))*(0.95+0.1*sin(sx));}   /* pale grey skin */
+      else if(bt>22.5&&bt<23.5){ col=mix(vec3(0.95,0.96,1.0),vec3(0.55,0.57,0.62),smoothstep(0.4,0.6,0.5+0.5*sin(sy*0.6+sx*0.2)))+0.05*sin(sx*3.0);}   /* white armour plates */
+      else if(bt>23.5&&bt<24.5){ vec2 sc=vec2(sy*0.7,sx*1.1);vec2 fr=abs(fract(sc)-0.5);float ln=smoothstep(0.38,0.5,max(fr.x,fr.y));col=mix(mix(vec3(0.15,0.55,0.55),vec3(0.9,0.7,0.2),0.5+0.5*sin(sy*0.3)),vec3(0.02),ln)*1.05;}   /* teal and gold, scaled */
+      else if(bt>24.5&&bt<25.5){ col=pal(uTime*0.3+pos.y*0.5)*(1.8+0.8*sin(uTime*6.0))+vec3(0.6);}   /* bright pulsing light */
+      else if(bt>20.5&&bt<21.5){ col=mix(vec3(0.42,0.44,0.46),vec3(0.82,0.84,0.88),smoothstep(0.55,0.95,0.5+0.5*sin(sy*0.5+sx*0.3)))*(0.9+0.15*sin(sx*0.7+uTime*0.5));}   /* grey suit, pale highlights */
+      else if(bt>16.5&&bt<17.5){ float sp=hash31(floor(pos*45.0));col=mix(vec3(0.33,0.31,0.3),vec3(0.62,0.6,0.56),sp)*(0.8+0.3*sin(sy*0.3))+vec3(0.9,0.85,0.7)*step(0.985,sp)*0.8;}   /* granite: speckled grey */
+      else if(bt>17.5&&bt<18.5){ col=mix(vec3(0.7,0.88,1.0),vec3(1.0),0.4+0.4*sin(sy*0.5-uTime*1.2))*(0.85+0.3*sin(sx*0.8+uTime))+vec3(0.5,0.8,1.0)*step(0.97,hash31(floor(pos*60.0+floor(uTime*3.0))))*0.9;}   /* ice-pale, glints */
+      else if(bt>18.5&&bt<19.5){ col=mix(vec3(0.92,0.9,0.85),vec3(0.6,0.15,0.9),smoothstep(0.55,0.95,0.5+0.5*sin(sy*0.9+sx*0.4+uTime)))*1.1;}   /* bone with violet */
+      else if(bt>19.5&&bt<20.5){ col=mix(vec3(1.0,0.78,0.1),vec3(0.04,0.03,0.02),step(0.5,0.5+0.5*sin(sy*1.7)))*1.1;}   /* yellow and black stripes */
       else if(bt>15.5&&bt<16.5){ vec2 fc=floor(vec2(sx*0.9,sy*0.9));float hh=hash21(fc);col=pal(hh*3.0+uTime*0.25)*(1.1+0.4*sin(uTime*3.0+hh*20.0));}   /* jewelled facets, each colour changing */
       else if(bt>13.5&&bt<14.5){ vec2 sc=vec2(sy*0.7,sx*1.1);vec2 fr=abs(fract(sc)-0.5);float ln=smoothstep(0.36,0.5,max(fr.x,fr.y));col=mix(mix(vec3(0.25,0.4,0.1),vec3(0.75,0.6,0.15),hash21(floor(sc))),vec3(0.015),ln)*1.05;}   /* olive scales, dark seams */
       else if(bt>14.5&&bt<15.5){ float rib=smoothstep(0.55,0.9,sin(pos.x*40.0+pos.z*40.0));col=mix(vec3(0.15,0.55,0.2),vec3(0.8,0.9,0.4),rib*0.7)*(0.9+0.1*sin(sy*0.3));}   /* ribbed green, pale spine lines */
@@ -3306,7 +3601,7 @@ const GEN=(function(){
     hueJit:0.06,                  /* guess: hue shift applied to every palette */
     fear:0.07,                    /* share of runs that turn menacing (reports of fear are a minority) */
     time:{plain:45,freeze:30,rush:25,loop:0},   /* freeze: slowed time is reported; rush: great speed is reported; loop (time repeating) has no report, so it is off. Proportions are guesses */
-    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2,exam:3,cave:3,garden:3},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
+    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2,exam:3,cave:3,garden:3,temple:4,ocean:3,desert:3,maze:3,crystal:3,mountain:2,forest:3,ship:3,castle:3,babylon:2,church:2,stairs:2,dna:2},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
     leadKeep:0.7,                 /* share of scenes that keep the run's lead hues (reports: one or two lead hues per trip) */
     eyes:0.18,                    /* share of scenes whose walls are covered in eyes: guess (faces or eyes 2.4% of 3,778 reports; eyes in about 7 of 16 drawings; several first-hand reports of a dome or tunnel of eyes) */
     trans:{morph:26,cut:20,peel:20,door:10,curtain:6,slice:6,zoom:4,wipe:2,rift:4},   /* wiki, How scenes change: melt/dissolve/ooze 33 reports, abrupt 18 vs gradual 15, folding/peeling/layers 27, something opens 12, break apart 31, zoom into structure 6-7, wipe and slice 1 each */
@@ -3354,12 +3649,12 @@ const GEN=(function(){
     const dh=(r()*2-1)*P.hueJit;
     return{name:PALS[idx].n,stops:PALS[idx].s.map(c=>{const[h,s,v]=rgb2hsv(c);return hsv2rgb([(h+dh+1)%1,s,v]);})};
   }
-  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7,exam:7,cave:7,garden:8};
-  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7,exam:8,cave:9};
+  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7,exam:7,cave:7,garden:8,temple:8,ocean:8,desert:8,maze:7,crystal:8,mountain:8,forest:8,ship:7,castle:8,babylon:8,church:6,stairs:7,dna:4};
+  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7,exam:8,cave:9,maze:10,ship:11,stairs:12};
   const TK={cut:0,morph:1,door:2,wipe:3,slice:4,zoom:5,peel:6,curtain:7,rift:8};
   const TDUR={morph:[5,9],door:[2,3.2],wipe:[1.4,2.2],slice:[1,1.6],zoom:[1.6,2.4],peel:[2,3],curtain:[1.8,2.8],rift:[1.6,2.4]};
   /* which kinds of being go with which place (single reports, not counts): 0 shell, 1 humanoid, 2 many eyes, 3 blob, 4 tall slender, 5 swarm */
-  const PAIR={wait:{1:3,4:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},hyper:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},fractal:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},tunnel:{1:3,2:2,3:1,4:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},hall:{1:3,4:2,2:1,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},void:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},cosmos:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},dome:{1:3,4:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7},cath:{4:3,1:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7},carn:{1:5,5:2,3:1,6:1.2,7:2.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},wire:{0:3,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},checker:{1:2,4:2,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},white:{4:3,2:2,0:1,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},home:{3:3,1:2,5:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},pyr:{1:5,4:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7},lift:{3:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},lego:{1:2,5:2,3:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7},gel:{3:3,1:1,0:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7}};
+  const PAIR={exam:{21:6,1:1,13:0.5,10:0.5},wait:{1:3,4:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},hyper:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},fractal:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},tunnel:{1:3,2:2,3:1,4:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},hall:{1:3,4:2,2:1,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},void:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},cosmos:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},dome:{1:3,4:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},cath:{4:3,1:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},carn:{1:5,5:2,3:1,6:1.2,7:2.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:2,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},wire:{0:3,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},checker:{1:2,4:2,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},white:{4:3,2:2,0:1,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},home:{3:3,1:2,5:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},pyr:{1:5,4:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},lift:{3:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},lego:{1:2,5:2,3:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},gel:{3:3,1:1,0:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4}};
   function pair(name,key){const r=mulberry((Math.imul(key|0,2654435761)+7)>>>0);return +wpick(r,PAIR[name]||{1:1});}
   function scene(run,idx){
     const sd=(Math.imul(run.seed|0,0x9E3779B1)+Math.imul(idx+1,40503)+7)>>>0;
@@ -3372,11 +3667,13 @@ const GEN=(function(){
     if(name!=='fractal'){w.cell=3;w.glow=0.25;}
     if(name==='fractal'){w.FQ=[0,0.15,0.055,0];}
     else if(name==='hyper'){w.FP=[R(1.1,1.7),pk([6,8,10,12]),R(2.0,3.4),0];w.FQ=[R(-1,1),0.9,0.05,0];w.bp=[3.4,0.8,1.0,0];}
+    else if(name==='dna'){w.FP=[R(1.6,2.2),6,R(1.8,3.2),R(.15,.35)];w.FQ=[0,2.0,0.05,0];w.bp=[3.4,0.7,0.9,0];}
     else if(name==='tunnel'){w.FP=[R(1.6,2.4),pk([4,6,8,12]),R(1.8,3.2),R(.15,.35)];w.FQ=[R(-1,1),1.0,0.05,0];w.bp=[3.4,0.7,0.9,0];}
     else if(name==='hall'){w.FP=[R(1.6,2.4),R(1.0,1.5),R(2.0,3.4),R(.5,1.0)];w.FQ=[0,0.8,0.045,1];w.bp=[3.0,0.8,1.3,-0.2];}
     else if(name==='pastel'){w.FP=[R(2,3.5),R(.2,.4),R(.5,1),3];w.FQ=[0,0,0.055,0];w.vd=0;w.glow=0.6;w.bp=[4,1.2,1,0];}
     else if(name==='void'||name==='cosmos'){const cs=name==='cosmos';w.FP=[R(2,3.5),R(.18,.45),R(.5,1),cs?1:0];w.FQ=[0,0,0.055,0];w.vd=cs?1:0;w.glow=0.8;w.bp=[4,1.2,1,0];}
     else if(name==='dome'){w.FP=[R(5,7),pk([8,12,16]),pk([4,6]),R(.25,.6)];w.FQ=[0,0.5,0.04,0];w.bp=[3.5,1.0,0.9,-0.5];}
+    else if(name==='church'){w.FP=[R(1.8,2.4),R(1.0,1.4),R(3.4,4.2),0];w.FQ=[1,1.2,0.035,0];w.bp=[3.6,0.8,1.4,-0.2];}
     else if(name==='cath'){w.FP=[R(2.2,3.0),R(1.2,1.8),R(3.2,4.4),0];w.FQ=[0,1.2,0.035,0];w.bp=[3.6,0.8,1.4,-0.2];}
     else if(name==='carn'){w.FP=[R(2.2,3.0),0,R(4.5,6.5),0];w.FQ=[0,0.4,0.03,0];w.bp=[3.5,1.2,1,0];}
     else if(name==='gel'){w.FP=[3,0.5,0.8,2];w.FQ=[0,0.8,0.045,0];w.glow=0.6;w.bp=[3.5,1.0,1.0,0];}
@@ -3384,6 +3681,14 @@ const GEN=(function(){
     else if(name==='lego'){w.FP=[R(2.4,3.0),R(1.5,2.0),R(2.4,3.2),0];w.FQ=[5,0.3,0.04,0];w.bp=[3.0,0.9,1.0,-0.3];}
     else if(name==='dayglo'){w.FP=[R(5,7),3,R(5,7),R(.8,1.2)];w.FQ=[2,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='city'){w.FP=[R(1.4,2.0),3,R(5,7),R(.5,.9)];w.FQ=[1,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='mountain'){w.FP=[R(1.0,1.4),3,R(7,9),R(.7,1.1)];w.FQ=[8,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='babylon'){w.FP=[R(1.2,1.6),3,R(8,9.5),R(.6,.9)];w.FQ=[11,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='castle'){w.FP=[R(1.2,1.6),3,R(8,9.5),R(.7,1.0)];w.FQ=[10,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='forest'){w.FP=[R(1.2,1.6),3,R(2.2,3.0),R(.6,.9)];w.FQ=[9,0.25,0.04,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='crystal'){w.FP=[R(1.4,2.0),3,R(4,5.5),R(.8,1.2)];w.FQ=[7,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='desert'){w.FP=[R(1.0,1.4),3,R(6,8),R(.5,.8)];w.FQ=[6,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='temple'){w.FP=[R(1.4,2.0),3,R(4,5),R(.8,1.2)];w.FQ=[4,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='ocean'){w.FP=[R(1.0,1.4),3,R(6,8),R(.5,.8)];w.FQ=[5,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='garden'){w.FP=[R(1.4,2.0),3,R(4,6),R(.5,.9)];w.FQ=[3,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='pyr'){w.FP=[R(1.4,2.0),pk([4,5,6]),R(9,12),R(.5,.9)];w.FQ=[0,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else {w.FP=[R(2.2,3.2),R(1.3,1.9),R(2.4,3.4),0];w.FQ=[MODE[name],0.3,0.04,0];w.bp=[3.0,0.9,1.0,-0.3];}
@@ -3396,7 +3701,7 @@ const GEN=(function(){
       w.bend=bk==='curve'?[sg*RR(2,5),0,0]:bk==='wave'?[sg*RR(2,4),RR(1,2.5),0]:bk==='climb'?[0,0,sg*RR(.12,.3)]:bk==='chute'?[sg*RR(3,6),RR(2,4),sg*RR(.1,.2)]:[0,0,0];
     }
     const prog=Math.min(1,idx*41/run.peakSec);
-    const pal=name==='exam'?{name:'clinical white',stops:[[.9,.95,1],[.25,.45,.5],[1,1,1],[.35,.62,.68]]}:name==='cave'?{name:'womb red',stops:[[.5,.05,.1],[.15,.02,.08],[1,.5,.3],[.3,.1,.5]]}:name==='garden'?{name:'garden',stops:[[.95,.85,.4],[.4,.8,1],[1,.5,.7],[.25,.7,.3]]}:name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
+    const pal=name==='dna'?{name:'DNA tunnel',stops:[[.3,.9,1],[.05,.1,.3],[1,.4,.8],[.1,.3,.5]]}:name==='stairs'?{name:'stair hall',stops:[[.9,.85,.7],[.25,.2,.3],[1,.7,.3],[.4,.35,.4]]}:name==='church'?{name:'stained-glass church',stops:[[1,.75,.3],[.5,.12,.2],[.3,.5,1],[.45,.3,.2]]}:name==='babylon'?{name:'garden palace',stops:[[1,.8,.35],[.1,.5,.55],[.4,1,.7],[.15,.55,.25]]}:name==='castle'?{name:'neon lace castle',stops:[[1,.4,.8],[.2,.1,.5],[1,.9,.5],[.2,.15,.45]]}:name==='ship'?{name:'ship deck',stops:[[.6,.7,.8],[.1,.12,.18],[.4,.8,1],[.25,.3,.4]]}:name==='mountain'?{name:'high peaks',stops:[[.85,.9,1],[.25,.2,.45],[1,.7,.4],[.4,.5,.75]]}:name==='forest'?{name:'forest',stops:[[.2,.6,.3],[.03,.15,.1],[1,.9,.4],[.1,.4,.45]]}:name==='crystal'?{name:'crystal',stops:[[.6,.85,1],[.35,.2,.7],[1,1,1],[.3,.7,.9]]}:name==='desert'?{name:'desert',stops:[[1,.55,.2],[.35,.12,.2],[1,.85,.5],[.55,.3,.45]]}:name==='temple'?{name:'temple stone',stops:[[1,.8,.4],[.45,.3,.2],[1,.9,.6],[.7,.55,.4]]}:name==='ocean'?{name:'deep sea',stops:[[.2,.6,.9],[.02,.1,.25],[.9,1,1],[.05,.25,.45]]}:name==='exam'?{name:'clinical white',stops:[[.9,.95,1],[.25,.45,.5],[1,1,1],[.35,.62,.68]]}:name==='cave'?{name:'womb red',stops:[[.5,.05,.1],[.15,.02,.08],[1,.5,.3],[.3,.1,.5]]}:name==='garden'?{name:'garden',stops:[[.95,.85,.4],[.4,.8,1],[1,.5,.7],[.25,.7,.3]]}:name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
     w.palA=pal.stops[0];w.palB=pal.stops[1];w.palC=pal.stops[2];w.palD=pal.stops[3];w.palName=pal.name;
     w.speed=R(P.speed[0],P.speed[1]);w.sd=R(P.sparkD[0],P.sparkD[1]);w.sr=R(P.sparkR[0],P.sparkR[1]);
     w.mist=r()<0.2?R(0.6,1):0;   /* guess: 20% of scenes; notes: a mist rises around the viewer as colours shift (149); fog/mist/smoke words in 31 reports */
@@ -5097,12 +5402,14 @@ let gameSpeed=1;
   addEventListener('pointerdown',e=>{su=(open&&!g&&e.clientY<H+90)?{id:e.pointerId,y:e.clientY}:null;});
   addEventListener('pointerup',e=>{if(su&&e.pointerId===su.id&&e.clientY-su.y<-40&&open)setOpen(false);su=null;});
 })();
-let last=performance.now(),ema=0.016,slow=0;
+let last=performance.now(),ema=0.016,slow=0,fast=0;
 function loop(ms){
   requestAnimationFrame(loop);
   const dt=Math.min(0.1,(ms-last)/1000);last=ms;if(dt<=0||!shadersReady)return;
   time+=dt;ema=ema*0.95+dt*0.05;
-  if(ema>0.036&&quality>0.65){slow++;if(slow>180){quality=Math.max(0.65,quality*0.92);slow=0;resize();}}else slow=Math.max(0,slow-1);
+  /* adaptive resolution: drops the internal resolution a little when frames take longer than about 25 ms (under 40 fps) for 1.5 s, and gives it back when frames stay under about 18 ms for 5 s, so a fast GPU stays at full native sharpness and a slow one trades sharpness for smoothness */
+  if(ema>0.025&&quality>0.5){slow++;fast=0;if(slow>90){quality=Math.max(0.5,quality*0.9);slow=0;resize();}}
+  else{slow=Math.max(0,slow-1);if(ema<0.0185&&quality<1.0){fast++;if(fast>300){quality=Math.min(1.0,quality*1.08);fast=0;resize();}}else fast=Math.max(0,fast-2);}
   const sp=(state==='plateau'||state==='return')?gameSpeed:1;
   if(sp<=1){update(dt);draw(dt);}
   else{const sdt=dt*sp,n=Math.ceil(sdt/0.05);for(let i=0;i<n;i++)update(sdt/n);draw(Math.min(sdt,0.6));}   /* faster: the logic runs in small steps so scenes, beings and time events stay in order */
