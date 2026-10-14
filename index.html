@@ -1149,6 +1149,25 @@ float mapRoom(vec3 p){
   } else if(md<4.5){   /* dimensional elevator: a narrow shaft, a lit door at every floor going past, each floor a different colour */
     gMat=7.0;gUV=uvw*1.2;dd=d;
     if(dx<dy&&dx<dz&&abs(r.z)<hs.z*0.45&&abs(r.y+hs.y*0.1)<hs.y*0.55){gMat=9.0;gUV=vec2(id*0.37+(r.x>0.0?0.0:1.7),0.0);}
+  } else if(md>7.5&&md<8.5){   /* examination or operating room (Kagan: 9% of environments): a bright white tiled room, an operating slab on a pedestal under a ring of lights; reports: bright white room with beings in grey suits and white gloves, an operating theatre with comic surgeons, four beings looking down as at an operating table */
+    gMat=10.0;gUV=uvw*0.5;dd=d;
+    float slab=length(max(abs(r-vec3(0.0,-hs.y+0.95,0.0))-vec3(0.55,0.1,1.2),0.0))-0.05;
+    float ped=max(length(r.xz)-0.2,abs(r.y+hs.y*0.5-0.45)-(hs.y*0.5-0.45));
+    float ring=length(vec2(length(r.xz)-1.0,r.y-hs.y*0.55))-0.07;
+    float disc=max(length(r.xz)-0.9,abs(r.y-hs.y*0.58)-0.015);
+    float ob=min(min(slab,ped),min(ring,disc));
+    dd=min(d,ob);
+    if(dd==ob){gMat=0.0;gTrap=vec3((ring<slab&&ring<disc)||disc<slab?0.02:0.45,0.5,0.9);return dd*0.7;}
+  } else if(md>8.5){   /* cave / womb / inside a body (340 reports: caves, cells, womb 28; caves 8% of environments): organic displaced walls, stalactites and stalagmites, veined glowing surface */
+    float dis=0.5*sin(r.x*1.1+tm*0.1+sin(r.y*0.9+r.z*0.5))*sin(r.y*1.3+2.0*sin(r.z*0.7))+0.22*sin(r.z*2.1+r.x*1.7+tm*0.15);
+    dd=d-dis*0.9;
+    vec2 sc2=floor(r.xz/1.5+0.5);vec2 cl2=r.xz-sc2*1.5;float hs2=hash21(sc2+id*3.1);
+    float ly=0.5+1.6*hs2;
+    float syc=hs.y-r.y,syf=r.y+hs.y;
+    float st1=(hs2>0.45)?max(length(cl2)-0.26*clamp(1.0-syc/ly,0.0,1.0),-(syc)):1e3;
+    float st2=(hs2<0.55)?max(length(cl2)-0.22*clamp(1.0-syf/(ly*0.8),0.0,1.0),-(syf)):1e3;
+    dd=min(dd,min(st1,st2));
+    gMat=14.0;gUV=vec2(atan(r.x,r.y)*1.3,r.z*0.5+0.3*dis);
   } else if(md>5.5){   /* hive (6) and code (7): the room itself carries the pattern */
     gMat=(md<6.5)?11.0:12.0;gUV=uvw*((md<6.5)?0.9:0.55);dd=d;
   } else {             /* Legoland: bricks with studs, rebuilding themselves all the time */
@@ -1179,6 +1198,24 @@ float mapPyr(vec3 p){
   float d=dg;
   float steps=gFP.y;
   float sh=gFP.w*(0.6+h*0.8);
+  if(gFQ.x>2.5){   /* garden of extraordinary beauty (Michael 2021, 'gardens... rivers and everything'; meadows to the horizon): a green meadow with a winding river and rounded trees; low orange sun from the pyramid family */
+    float rv=p.x-c0.x-4.0*sin(p.z*0.11)-1.5*sin(p.z*0.31);
+    float rb=smoothstep(1.8,0.8,abs(rv));
+    float gy=yF-0.5*rb;
+    float dgr=p.y-gy;
+    float dd2=dgr;
+    float tr=hash21(id);
+    if(tr>0.5&&abs(rv)>3.0){
+      float th=sh*(0.8+1.2*tr);
+      float trunk=length(vec2(q2.x,q2.y))-0.1;trunk=max(trunk,abs(p.y-(yF+th*0.4))-th*0.4);
+      float crown=length(vec3(q2.x,p.y-(yF+th*1.0),q2.y)*vec3(1.0,1.2,1.0))-th*0.55;
+      dd2=min(dd2,min(trunk,crown));
+      gMat=(dd2==dgr)?10.0:0.0;
+      gTrap=vec3(tr*1.7,0.5,tr);
+    } else {gMat=(rb>0.4)?8.0:10.0;gTrap=vec3(0.3+0.1*rb,0.4,0.5);}
+    gUV=p.xz*0.35;
+    return dd2*0.6;
+  }
   if(gFQ.x>1.5){   /* day-glo landscape seen from miles above, antenna-like structures (Strassman volunteer report) */
     float ah=sh*(1.5+7.0*h);
     vec3 b=vec3(q2.x,p.y-(yF+ah*0.5),q2.y);
@@ -1573,6 +1610,13 @@ vec2 hash22(vec2 p){return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(26
 vec3 gAlb=vec3(0.0),gEmi=vec3(0.0);float gGl=0.0,gAoOn=1.0;
 void surfM(float m,vec2 uv,vec3 tp,float ndv){
   gAoOn=1.0;
+  if(m>13.5){   /* veined organic surface: dark flesh or rock with glowing veins and pulsing nodes (cave, womb, cell) */
+    float v1=abs(sin(uv.x*3.0+1.6*sin(uv.y*2.2+uTime*0.25)));float v2=abs(sin(uv.y*4.1-1.2*sin(uv.x*1.7-uTime*0.2)));
+    float ln=smoothstep(0.1,0.0,v1)+0.8*smoothstep(0.08,0.0,v2);
+    float nd=smoothstep(0.9,1.0,sin(uv.x*1.3)*sin(uv.y*1.1+uTime*0.4));
+    gAlb=gPD*0.3+gPA*0.12;gEmi=gPC*ln*(0.9+0.3*sin(uTime*0.8+uv.x))+gPB*nd*0.8+gPA*0.05;gGl=0.5;
+    return;
+  }
   if(m<0.5){
     gAlb=pal(tp.x*0.9+tp.y*0.6+tp.z*0.4+uTime*0.02);gEmi=pal(tp.x*2.0+uTime*0.05)*exp(-tp.x*14.0)*0.95;gGl=0.6;
     if(gFam<0.5){   /* fractal: reports describe intricate patterns "fractally dancing and inverting", jewelled and painted streams, black with bright outlines: fine bright contour lines on a dark body */
@@ -3262,7 +3306,7 @@ const GEN=(function(){
     hueJit:0.06,                  /* guess: hue shift applied to every palette */
     fear:0.07,                    /* share of runs that turn menacing (reports of fear are a minority) */
     time:{plain:45,freeze:30,rush:25,loop:0},   /* freeze: slowed time is reported; rush: great speed is reported; loop (time repeating) has no report, so it is off. Proportions are guesses */
-    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
+    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2,exam:3,cave:3,garden:3},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
     leadKeep:0.7,                 /* share of scenes that keep the run's lead hues (reports: one or two lead hues per trip) */
     eyes:0.18,                    /* share of scenes whose walls are covered in eyes: guess (faces or eyes 2.4% of 3,778 reports; eyes in about 7 of 16 drawings; several first-hand reports of a dome or tunnel of eyes) */
     trans:{morph:26,cut:20,peel:20,door:10,curtain:6,slice:6,zoom:4,wipe:2,rift:4},   /* wiki, How scenes change: melt/dissolve/ooze 33 reports, abrupt 18 vs gradual 15, folding/peeling/layers 27, something opens 12, break apart 31, zoom into structure 6-7, wipe and slice 1 each */
@@ -3310,8 +3354,8 @@ const GEN=(function(){
     const dh=(r()*2-1)*P.hueJit;
     return{name:PALS[idx].n,stops:PALS[idx].s.map(c=>{const[h,s,v]=rgb2hsv(c);return hsv2rgb([(h+dh+1)%1,s,v]);})};
   }
-  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7};
-  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7};
+  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7,exam:7,cave:7,garden:8};
+  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7,exam:8,cave:9};
   const TK={cut:0,morph:1,door:2,wipe:3,slice:4,zoom:5,peel:6,curtain:7,rift:8};
   const TDUR={morph:[5,9],door:[2,3.2],wipe:[1.4,2.2],slice:[1,1.6],zoom:[1.6,2.4],peel:[2,3],curtain:[1.8,2.8],rift:[1.6,2.4]};
   /* which kinds of being go with which place (single reports, not counts): 0 shell, 1 humanoid, 2 many eyes, 3 blob, 4 tall slender, 5 swarm */
@@ -3340,6 +3384,7 @@ const GEN=(function(){
     else if(name==='lego'){w.FP=[R(2.4,3.0),R(1.5,2.0),R(2.4,3.2),0];w.FQ=[5,0.3,0.04,0];w.bp=[3.0,0.9,1.0,-0.3];}
     else if(name==='dayglo'){w.FP=[R(5,7),3,R(5,7),R(.8,1.2)];w.FQ=[2,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='city'){w.FP=[R(1.4,2.0),3,R(5,7),R(.5,.9)];w.FQ=[1,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='garden'){w.FP=[R(1.4,2.0),3,R(4,6),R(.5,.9)];w.FQ=[3,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='pyr'){w.FP=[R(1.4,2.0),pk([4,5,6]),R(9,12),R(.5,.9)];w.FQ=[0,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else {w.FP=[R(2.2,3.2),R(1.3,1.9),R(2.4,3.4),0];w.FQ=[MODE[name],0.3,0.04,0];w.bp=[3.0,0.9,1.0,-0.3];}
     { const mr_=mulberry((sd^0x77aa55)>>>0);const vert=['fractal','void','cosmos','pastel','gel'].indexOf(name)>=0;
@@ -3351,7 +3396,7 @@ const GEN=(function(){
       w.bend=bk==='curve'?[sg*RR(2,5),0,0]:bk==='wave'?[sg*RR(2,4),RR(1,2.5),0]:bk==='climb'?[0,0,sg*RR(.12,.3)]:bk==='chute'?[sg*RR(3,6),RR(2,4),sg*RR(.1,.2)]:[0,0,0];
     }
     const prog=Math.min(1,idx*41/run.peakSec);
-    const pal=name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
+    const pal=name==='exam'?{name:'clinical white',stops:[[.9,.95,1],[.25,.45,.5],[1,1,1],[.35,.62,.68]]}:name==='cave'?{name:'womb red',stops:[[.5,.05,.1],[.15,.02,.08],[1,.5,.3],[.3,.1,.5]]}:name==='garden'?{name:'garden',stops:[[.95,.85,.4],[.4,.8,1],[1,.5,.7],[.25,.7,.3]]}:name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
     w.palA=pal.stops[0];w.palB=pal.stops[1];w.palC=pal.stops[2];w.palD=pal.stops[3];w.palName=pal.name;
     w.speed=R(P.speed[0],P.speed[1]);w.sd=R(P.sparkD[0],P.sparkD[1]);w.sr=R(P.sparkR[0],P.sparkR[1]);
     w.mist=r()<0.2?R(0.6,1):0;   /* guess: 20% of scenes; notes: a mist rises around the viewer as colours shift (149); fog/mist/smoke words in 31 reports */
