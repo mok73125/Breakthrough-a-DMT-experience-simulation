@@ -415,6 +415,14 @@ const Snd=(()=>{
     }
     setTimeout(sparse,20000+Math.random()*50000);
   }
+  /* skull clowns: "tinkling sounds" with the violet sparks (report 116); a few very quiet bell-like sine pings, pitches scattered */
+  function tinkleBeing(){
+    if(!ready||curBrk<0.9)return;const t=now();
+    const n=2+Math.floor(Math.random()*3);
+    for(let i=0;i<n;i++){const ti=t+i*(0.05+Math.random()*0.18),o=ctx.createOscillator();o.type='sine';o.frequency.value=2600+Math.random()*3600;
+      const g=ctx.createGain();g.gain.setValueAtTime(0.0001,ti);g.gain.linearRampToValueAtTime(0.012,ti+0.003);g.gain.exponentialRampToValueAtTime(0.0001,ti+0.55);
+      o.connect(g);g.connect(master);o.start(ti);o.stop(ti+0.6);}
+  }
   /* on the way out (wiki, Sound): the pitch drops, or an ear pop ends the buzz */
   function windup(){
     if(!ready)return;const t=now();
@@ -529,7 +537,7 @@ const Snd=(()=>{
   function muffle(f){if(ready&&muff)muff.frequency.setTargetAtTime(f,now(),0.25);}
   function setMuted(m){muted=m;if(ready)master.gain.setTargetAtTime(m?0:0.85*vol,now(),0.1);}
   function setVolume(v){vol=v;if(ready&&!muted)master.gain.setTargetAtTime(0.85*vol,now(),0.05);}
-  return {roomBreakIn,windup,init,setPops,setProfile,setState,tune,riser,launch,inhaleStart,stopInhale,exhale,cough,lighterOn,lighterOff,glassDown,crackle,setMuted,setVolume,muffle,hook,isMuted:()=>muted};
+  return {tinkleBeing,roomBreakIn,windup,init,setPops,setProfile,setState,tune,riser,launch,inhaleStart,stopInhale,exhale,cough,lighterOn,lighterOff,glassDown,crackle,setMuted,setVolume,muffle,hook,isMuted:()=>muted};
 })();
 
 /* =====================================================================
@@ -1119,6 +1127,8 @@ float mapCarn(vec3 p){
   return min(d,max(bnd,0.15))*0.7;
 }
 /* rooms: 0 neon wireframe, 1 checkered, 2 white and edgeless, 3 holographic domestic room at night; a run of rooms joined by openings */
+float sminO(float a,float b,float k){float h=clamp(0.5+0.5*(b-a)/k,0.0,1.0);return mix(b,a,h)-k*h*(1.0-h);}
+float sdSeg2(vec2 p,vec2 a,vec2 b){vec2 pa=p-a,ba=b-a;return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0));}
 float mapRoom(vec3 p){
   vec3 q=p-vec3(0.5*gCell,0.5*gCell,0.0);
   float tm=uTime;
@@ -1182,6 +1192,40 @@ float mapRoom(vec3 p){
     float ob=min(min(slab,ped),min(ring,disc));
     dd=min(d,ob);
     if(dd==ob){gMat=0.0;gTrap=vec3((ring<slab&&ring<disc)||disc<slab?0.02:0.45,0.5,0.9);return dd*0.7;}
+  } else if(md>13.5){   /* organic future apartment (report: organic futuristic apartments in pink, orange and yellow, real bright, with furniture "molded out of the walls" that looked alive): soft veined walls with a bed, table and seats swelling out of the floor and walls, slowly breathing */
+    gMat=14.4;gUV=uvw*0.7;
+    float br=0.04*sin(uTime*0.7+r.x+r.z);
+    float bed=length(max(abs(r-vec3(hs.x*0.55,-hs.y+0.5,hs.z*0.1))-vec3(0.9,0.25,1.4),0.0))-0.35;
+    float tab=max(length(r.xz-vec2(-hs.x*0.45,hs.z*0.35))-0.7,abs(r.y+hs.y-0.8)-0.12)-0.1;
+    float stem=length(r.xz-vec2(-hs.x*0.45,hs.z*0.35))-0.22+0.12*(r.y+hs.y);
+    float ch=length(r-vec3(-hs.x*0.45,-hs.y+0.4,hs.z*0.35+1.2))-0.38;
+    float chb=length((r-vec3(-hs.x*0.45,-hs.y+0.9,hs.z*0.35+1.55))*vec3(1.0,0.6,1.8))-0.3;
+    float fu=min(min(bed,min(tab,stem)),min(ch,chb));
+    dd=sminO(d,min(fu,1e3),0.55)+br;
+    gTrap=vec3(0.5+0.3*sin(r.y*3.0+uTime*0.5),0.5,0.5);
+  } else if(md>12.5){   /* parking tower of wire people on bicycles (Sean series: wire people on bicycles like video-game people, blue-green, "like a parking tower"): stacked open decks, each with thin glowing wire figures cycling along it */
+    gMat=3.0;gUV=uvw*0.8;dd=d;
+    float Ly=hs.y*0.45;float lv=floor((r.y+hs.y)/Ly);
+    float ly=r.y-(lv*Ly-hs.y);
+    float sl=max(abs(ly-0.04)-0.05,0.3*hs.x-abs(r.x));
+    float hv=hash21(vec2(lv,id));float sgn=(mod(lv,2.0)<0.5)?1.0:-1.0;
+    float zz=r.z*sgn+uTime*(0.7+0.5*hv);
+    float lz=(fract(zz/4.0+0.5)-0.5)*4.0;
+    vec3 b=vec3(r.x-sgn*hs.x*0.62,ly-0.1,lz);
+    float wA=abs(length(vec2(length(b.yz-vec2(0.4,0.5))-0.36,b.x))-0.0)-0.018;
+    float wB=abs(length(vec2(length(b.yz-vec2(0.4,-0.5))-0.36,b.x))-0.0)-0.018;
+    float fr=min(sdSeg2(b.yz,vec2(0.4,0.5),vec2(0.55,0.0)),min(sdSeg2(b.yz,vec2(0.55,0.0),vec2(0.4,-0.5)),sdSeg2(b.yz,vec2(0.55,0.0),vec2(0.9,-0.05))));
+    float bk=length(vec2(fr,b.x))-0.016;
+    float tor=sdSeg2(b.yz,vec2(0.95,-0.02),vec2(1.45,0.18));
+    float leg=min(sdSeg2(b.yz,vec2(0.95,-0.02),vec2(0.5,0.12)),sdSeg2(b.yz,vec2(0.5,0.12),vec2(0.4,0.0)));
+    float arm=sdSeg2(b.yz,vec2(1.35,0.15),vec2(0.92,0.45));
+    float hd=abs(length(b-vec3(0.0,1.6,0.26))-0.12)-0.012;
+    float rid=min(min(length(vec2(tor,b.x))-0.02,length(vec2(min(leg,arm),b.x))-0.014),hd);
+    float wire=min(min(wA,wB),min(bk,rid));
+    wire=max(wire,abs(r.y)-hs.y);
+    dd=min(d,min(sl,wire*0.8));
+    if(dd==wire*0.8&&wire<sl){gMat=0.0;gTrap=vec3(0.9,0.5,hv);return dd*0.7;}
+    if(dd==sl){gMat=5.0;gUV=r.xz*1.5;}
   } else if(md>11.5){   /* staircase room (stairs 1 and corkscrew stairwells in the notes; a basement hallway bending with its stairs visible round the corner; Escher-like gravity is a candidate, not sourced): flights of stairs rising along the floor, a side wall and the ceiling, each in a different direction */
     gMat=3.0;gUV=uvw*0.8;
     float stp=min(hs.x,hs.y)*0.05;float sw=0.55*stp/0.22;
@@ -1236,6 +1280,7 @@ float mapRoom(vec3 p){
   return dd*0.7;
 }
 /* jungle pyramid: stepped pyramids on a dark plain under a low orange sun */
+float sdSegM(vec3 p,vec3 a,vec3 b,float r){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);return length(pa-ba*h)-r;}
 float mapPyr(vec3 p){
   vec2 c0=vec2(0.5*gCell);
   vec2 C2=vec2(gFP.z);
@@ -1248,6 +1293,65 @@ float mapPyr(vec3 p){
   float d=dg;
   float steps=gFP.y;
   float sh=gFP.w*(0.6+h*0.8);
+  if(gFQ.x>13.5){   /* micro world (notes: macro<->micro zooming common, atoms/molecules 3, cells 4; a hospital-study volunteer saw cellular tubes, DNA spirals and a microscope-like view): nested scales, large translucent cells with a nucleus and organelles, and ball-and-stick molecules floating between them */
+    vec2 qq=p.xz-c0-C2*0.5;vec2 idc=floor(qq/C2+0.5);qq-=C2*idc;
+    float hc=hash21(idc+3.1);
+    vec3 b=vec3(qq.x,p.y-yF-2.0-1.2*hc+0.3*sin(uTime*0.3+hc*6.0),qq.y);
+    float Rc=1.5+0.5*hc;
+    float shell=abs(length(b)-Rc)-0.05;
+    {vec3 dn=normalize(b+1e-4);float pt=sin(dn.x*7.0+hc*5.0)*sin(dn.y*7.0)*sin(dn.z*7.0);shell+=smoothstep(-0.05,0.2,pt)*0.6;}   /* netted membrane so the nucleus and organelles inside show */
+    float nuc=length(b-vec3(0.2,0.1,-0.1)*Rc)-0.45*Rc;
+    float org=1e3;
+    for(int k=0;k<4;k++){float fk=float(k);float ak=hc*6.28+fk*1.57;
+      org=min(org,length(b-vec3(cos(ak),sin(ak*1.7)*0.5,sin(ak))*Rc*0.6)-0.16*Rc);}
+    /* molecule: four atoms joined by bonds, outside the cell, small scale */
+    vec3 mb=b-vec3(Rc*1.6,Rc*0.5,0.0);
+    float at=min(min(length(mb)-0.18,length(mb-vec3(0.45,0.2,0.0))-0.12),min(length(mb-vec3(-0.35,0.3,0.2))-0.12,length(mb-vec3(0.1,-0.4,0.3))-0.12));
+    float bd=min(min(sdSegM(mb,vec3(0.0),vec3(0.45,0.2,0.0),0.03),sdSegM(mb,vec3(0.0),vec3(-0.35,0.3,0.2),0.03)),sdSegM(mb,vec3(0.0),vec3(0.1,-0.4,0.3),0.03));
+    float mol=min(at,bd);
+    float d14=min(p.y-(yF-3.0),min(shell,min(nuc,min(org,mol))));
+    gMat=(d14==shell)?0.0:((d14==mol)?4.0:((d14==nuc||d14==org)?4.0:10.0));
+    gUV=vec2(b.x*1.5+hc*9.0,b.y*1.5+b.z);
+    gTrap=vec3((d14==shell)?0.9:0.3+0.4*hc,0.5,fract(hc*5.0));
+    return d14*0.6;
+  }
+  if(gFQ.x>12.5){   /* virtual Taj Mahal (Strassman volunteer Marsha: "a beautiful domed structure, a virtual Taj Mahal"; vaulted dome as a destination): a white marble plinth with a central onion dome, four slim minarets, arched recesses and long reflecting pools */
+    vec2 qq=p.xz-c0-C2*0.5;qq-=C2*floor(qq/C2+0.5);vec3 b=vec3(qq.x,p.y-yF,qq.y)*1.3;
+    float plat=max(max(abs(b.x),abs(b.z))-3.2,abs(b.y-0.35)-0.35);
+    float body=max(max(abs(b.x),abs(b.z))-1.7,abs(b.y-1.9)-1.55);
+    float iw=min(length(vec2(abs(b.x)-1.7,b.y-1.3))-0.0,1e3);
+    float arc=max(max(abs(abs(b.x)-1.7)-0.2,abs(b.z)-0.6),length(vec2(b.z,max(b.y-1.4,0.0)))-0.6);
+    float arc2=max(max(abs(abs(b.z)-1.7)-0.2,abs(b.x)-0.6),length(vec2(b.x,max(b.y-1.4,0.0)))-0.6);
+    body=max(body,-min(arc,arc2));
+    float dr=length(b.xz);
+    float dh=b.y-3.45;
+    float dome=max(length(vec3(b.x,(b.y-3.45)*0.75,b.z)*vec3(1.0,1.0,1.0))-1.25*(1.0+0.12*sin(dh*2.5)),-dh-0.3);
+    float spire=max(length(b.xz)-0.05*(1.0-clamp((b.y-4.7)/1.0,0.0,1.0))-0.02,abs(b.y-5.2)-0.8);
+    vec2 mc=vec2(abs(b.x)-2.9,abs(b.z)-2.9);
+    float mn=max(length(mc)-0.2,b.y-4.2);
+    float mcap=length(vec3(mc.x,b.y-4.35,mc.y)*vec3(1.0,1.6,1.0))-0.28;
+    float pool=abs(b.x)-0.3;
+    float dg2=p.y-(yF-0.1*step(max(abs(b.z)-5.0,pool),0.0)*step(3.3,abs(b.z)));
+    float d13=min(min(dg2,plat),min(min(body,dome),min(spire,min(mn,mcap))));
+    gMat=(d13==dg2)?10.0:4.0;gUV=vec2(b.x*0.8+b.y,b.z*0.8);
+    gTrap=vec3(0.78+0.1*sin(b.y*6.0),0.5,0.3);
+    return d13*0.6;
+  }
+  if(gFQ.x>11.5){   /* orchard of giant fruit (a report of an orchard of fruit as big as the person): rows of low round-crowned trees hung with large glossy fruit about a person's size */
+    vec3 b=vec3(q2.x,p.y-yF,q2.y);
+    float th=sh*(1.6+0.8*h);
+    float trunk=max(length(b.xz)-0.14,abs(b.y-th*0.3)-th*0.3);
+    float crown=length(b*vec3(1.0,1.4,1.0)-vec3(0.0,th*1.1,0.0))-th*0.75;
+    float fr=1e3;
+    for(int k=0;k<3;k++){float fk=float(k);float ak=h*6.28+fk*2.094;
+      vec3 fc=vec3(cos(ak),0.0,sin(ak))*(0.85*th*0.6)+vec3(0.0,0.75+0.35*fk+0.2*h,0.0);
+      fr=min(fr,length(b-fc)-(0.55+0.25*fract(h*7.0+fk*0.37)));}
+    float d12=min(dg,min(trunk,min(crown,fr)));
+    bool isF=(d12==fr);
+    gMat=(d12==dg)?10.0:(isF?0.0:4.0);gUV=vec2(b.y*1.5+h*9.0,atan(b.z,b.x)*1.3);
+    gTrap=vec3(isF?0.85:0.25+0.3*h,0.5,fract(h*4.0));
+    return d12*0.6;
+  }
   if(gFQ.x>10.5){   /* Babylonian garden palace (one report: a palace with Babylonian-style gardens and rivers and mosque-like glass patterns on every wall; also garden 7, palace 1): stepped terraces with arched colonnades, green planted tops, water channels between courts */
     vec3 b=vec3(q2.x,p.y-yF,q2.y);
     float ax=max(abs(b.x),abs(b.z));
@@ -1267,7 +1371,7 @@ float mapPyr(vec3 p){
     return d11*0.6;
   }
   if(gFQ.x>9.5){   /* castle (castle 2 place words, 86 scene sentences; "Disney castle made of neon lace"; geometric castles destroyed and recreated; palace/castle gold, crystal, jewels): walled courts with round corner towers, crenellated walls, a tall keep with a conical spire */
-    float S=2.6;float hh=sh*(2.2+1.6*h);
+    float S=2.6;float grw=0.15+0.85*smoothstep(-0.3,0.5,sin(uTime*0.45+h*6.28));float hh=sh*(2.2+1.6*h)*grw;   /* geometric castles rapidly destroyed and recreated: each court's towers, walls and keep sink and rise again on their own cycle */
     vec3 b=vec3(q2.x,p.y-yF,q2.y);
     float dT=1e3;
     vec2 cq=vec2(abs(b.x)-S,abs(b.z)-S);
@@ -1275,8 +1379,8 @@ float mapPyr(vec3 p){
     float tr=0.62*(1.0-clamp((b.y-hh)/(hh*0.5),0.0,1.0));
     float roof=max(length(cq)-0.8*(1.0-clamp((b.y-hh)/(hh*0.55),0.0,1.0)),max(hh-b.y,b.y-hh*1.55));
     dT=min(tw,roof);
-    float wh=hh*0.55;
-    float wl=max(max(abs(max(abs(b.x),abs(b.z))-S)-0.16,b.y-wh),-1e3);
+    float wh=hh*0.9;
+    float wl=max(max(abs(max(abs(b.x),abs(b.z))-S)-0.28,b.y-wh),-1e3);
     float cren=step(0.0,sin((b.x+b.z)*6.0));
     wl=max(wl,b.y-(wh-0.22*cren));
     float gate=max(abs(b.x)-0.45,b.y-wh*0.62);
@@ -1760,6 +1864,7 @@ float beingOne(vec3 c,float ty,float sd){
   }
   if(ty>20.5&&ty<21.5){   /* being in a grey chemical suit with big white gloves and a visored helmet (exam-room report: a bright white room with beings in grey chemical suits and big white gloves; operating theatre with surgeons) */
     c.x+=0.02*sin(t*0.9);
+    c.z+=0.3*smoothstep(-0.1,0.7,c.y)+0.03*sin(t*0.5);   /* heads lean over the viewer as over a table (Nexus: 5-6 greys looking down, heads leaning over the visual field) */
     float d=sdSeg(c,vec3(0.0,-0.15,0.0),vec3(0.0,0.35,0.0),0.17);
     d=smin(d,length((c-vec3(0.0,-0.2,0.0))*vec3(1.0,0.8,1.0))-0.18,0.1);
     d=smin(d,length((c-vec3(0.0,0.62,0.0)))-0.16,0.06);
@@ -1819,6 +1924,29 @@ float beingOne(vec3 c,float ty,float sd){
     d=smin(d,sdSeg(a,sh,el,0.05),0.04);d=smin(d,sdSeg(a,el,wr,0.045),0.04);
     d=min(d,hand(a,wr+vec3(0.0,-0.04,0.03),vec3(0.0,-1.0,0.3),0.5));
     return d;
+  } else if(ty>26.5&&ty<27.5){   /* reaching humanoid (a single report: dozens of humanoids grabbing at the person, most loving, in a dark phase some aggressive): a slim standing figure with both arms stretched toward the viewer, hands open and grasping */
+    float rs=0.5+0.5*sin(t*1.6+sd*3.0);
+    float d=sdSeg(c,vec3(0.0,-0.35,0.0),vec3(0.0,0.3,0.0),0.12);
+    d=smin(d,length((c-vec3(0.0,0.5,0.03))*vec3(1.0,1.15,1.0))-0.11,0.05);
+    vec3 a=vec3(abs(c.x),c.y,c.z);
+    vec3 sh=vec3(0.15,0.25,0.0),el=vec3(0.24,0.2+0.04*rs,0.3),wr=vec3(0.18+0.05*rs,0.18+0.1*rs,0.65+0.12*rs);
+    d=smin(d,sdSeg(a,sh,el,0.045),0.04);d=smin(d,sdSeg(a,el,wr,0.04),0.04);
+    d=min(d,hand(a,wr,vec3(0.0,0.0,1.0),0.9+0.4*rs));
+    d=smin(d,sdSeg(a,vec3(0.07,-0.35,0.0),vec3(0.09,-0.95,0.05),0.06),0.04);
+    return d;
+  } else if(ty>25.5&&ty<26.5){   /* small childlike figure with pale hair in bright red clothing (Strassman volunteers via Meyer and Chacruna: small childlike figures with pale hair in bright red clothing): short rounded body in a red tunic, big round head with a cap of pale hair, short arms with hands, little legs */
+    vec3 k=c*1.7;
+    float bob=0.02*sin(t*2.0);
+    float d=length((k-vec3(0.0,-0.05+bob,0.0))*vec3(1.0,0.8,1.05))-0.2;
+    d=smin(d,length((k-vec3(0.0,0.3+bob,0.02))*vec3(1.0,1.0,1.05))-0.15,0.06);
+    d=min(d,length((k-vec3(0.0,0.38+bob,0.0))*vec3(1.0,0.75,1.05))-0.175);   /* hair cap */
+    vec3 a=vec3(abs(k.x),k.y,k.z);
+    d=smin(d,sdSeg(a,vec3(0.13,0.05,0.0),vec3(0.26,-0.08+0.05*sin(t*1.7),0.12),0.04),0.04);
+    d=min(d,length(a-vec3(0.27,-0.1+0.05*sin(t*1.7),0.14))-0.045);
+    d=smin(d,sdSeg(a,vec3(0.07,-0.2,0.0),vec3(0.08,-0.5,0.03),0.045),0.04);
+    d=min(d,length((a-vec3(0.08,-0.52,0.07))*vec3(1.0,1.0,0.6))-0.06);
+    d=min(d,length(a-vec3(0.06,0.28+bob,0.14))-0.022);   /* eyes */
+    return d/1.7;
   } else if(ty>24.5&&ty<25.5){   /* pulsating light sprite: a small bright, pulsing, Tinkerbell-like figure with four wings (Strassman volunteer: a 'Tinkerbell-like' pulsating entity in the patterns) */
     float pu=0.8+0.2*sin(t*6.0);
     float d=length(c-vec3(0.0,0.0,0.0))-0.12*pu;
@@ -1841,6 +1969,7 @@ float beingOne(vec3 c,float ty,float sd){
   }
   return d/3.0;
 }
+float gBCy=0.0,gBSz=1.0;
 float beings(vec3 p){
   if(uPres<0.01||uBN<0.5) return 1e3;
   float sz=uBP.z*uPres;
@@ -1864,6 +1993,7 @@ float beings(vec3 p){
         dmin=min(dmin,length(p-op)-rad);
       }
     }
+    gBCy=ctr.y;gBSz=sz;
     vec3 c=p-ctr;
     float lb=length(c)-sz*1.1;
     if(lb>0.5){dmin=min(dmin,lb);continue;}
@@ -1897,6 +2027,7 @@ void surfM(float m,vec2 uv,vec3 tp,float ndv){
     return;
   }
   if(m>13.5){   /* veined organic surface: dark flesh or rock with glowing veins and pulsing nodes (cave, womb, cell) */
+    if(m>14.25){gAlb=mix(gPA,gPB,0.5+0.5*sin(uv.x*0.9+1.3*sin(uv.y*0.8+uTime*0.15)))*0.85+gPC*0.1;gEmi=gAlb*0.55*(0.8+0.2*sin(uTime*0.7+uv.y))+gPC*0.15*smoothstep(0.85,1.0,sin(uv.x*2.0)*sin(uv.y*1.7));gGl=0.7;return;}
     float v1=abs(sin(uv.x*3.0+1.6*sin(uv.y*2.2+uTime*0.25)));float v2=abs(sin(uv.y*4.1-1.2*sin(uv.x*1.7-uTime*0.2)));
     float ln=smoothstep(0.1,0.0,v1)+0.8*smoothstep(0.08,0.0,v2);
     float nd=smoothstep(0.9,1.0,sin(uv.x*1.3)*sin(uv.y*1.1+uTime*0.4));
@@ -2074,7 +2205,7 @@ vec3 destLight(vec3 rd){
   float dz=max(rd.z,0.0);
   float core=pow(dz,60.0)*1.5+pow(dz,9.0)*0.4;
   float ang=acos(clamp(rd.z,-1.0,1.0));
-  float ring=gFQ.w*smoothstep(0.035,0.0,abs(ang-0.33))*0.9;
+  float ring=gFQ.w*step(gFQ.w,1.5)*smoothstep(0.035,0.0,abs(ang-0.33))*0.9;
   return (pal(0.3+0.05*sin(uTime*0.2))*(core+ring)+vec3(1.0,0.97,0.9)*pow(dz,300.0)*1.2)*gFQ.y;
 }
 vec3 voidBg(vec3 rd){
@@ -2137,12 +2268,23 @@ vec3 world(vec2 p){
     vec3 film=pal(tp.x*0.5+pos.z*0.04+uTime*0.03+0.35);
     if(mt<0.5) col=gAlb*0.9+film*0.25+gEmi;
     else col=gAlb*0.8+gEmi*1.25;
+    if(!isB&&gFam>6.5&&gFam<7.5&&gFQ.w>1.5){   /* beings forming the room itself (Nexus sub-breakthrough log: beings forming the room, flowing up and down the walls): rows of glowing humanoid silhouettes in the surfaces, streaming up some columns and down others */
+      float uu=(pos.x+pos.z)*0.8;float cid=floor(uu/0.6);float dirn=(mod(cid,2.0)<0.5)?1.0:-1.0;
+      float vv=pos.y*0.7+dirn*uTime*0.25+hash21(vec2(cid,3.0))*7.0;
+      vec2 fl=vec2(fract(uu/0.6)-0.5,fract(vv)-0.5);
+      float head=length(fl-vec2(0.0,0.28))-0.11;
+      float body=max(abs(fl.x)-0.15*(1.0-0.5*smoothstep(-0.2,0.2,fl.y)),abs(fl.y+0.02)-0.24);
+      float arms=max(abs(fl.x)-0.3,abs(fl.y-0.1-0.08*sin(uTime*1.5+cid))-0.03);
+      float fg=min(min(head,body),arms);
+      float fm=smoothstep(0.02,-0.02,fg);
+      col=mix(col,pal(cid*0.13+uTime*0.05)*1.3+vec3(0.15),fm*0.7);
+    }
     if(isB){
       float gz=smoothstep(0.05,0.2,length(pp));   /* figures in the periphery vanish when looked at directly */
       col=pal(0.55+uTime*0.04+pos.z*0.01+pos.y*0.1)*(0.55+0.45*abs(sin(pos.y*14.0+uTime*0.6)))*(1.0+0.25*sin(uTime*1.3+pos.y*3.0))+film*0.3;   /* wiki: beings are often transparent or built from light and patterns, rarely solid fill */
       /* per-form material (notes: forms differ: chrome/ceramic machines, translucent plasma, ghost-like ice, dark cloaked silhouettes, black stick figures with bright outlines, scaled reptile skin, orange skin with gold, harlequin colours; beings of light are one kind among them) */
       float bt=uBType;float sy=pos.y*14.0,sx=(pos.x+pos.z)*9.0;
-      if(bt>0.5&&bt<1.5){ col=vec3(0.015,0.015,0.03)+pal(pos.y*0.3+uTime*0.05)*0.12*(0.5+0.5*sin(sy*0.5+uTime));}   /* cloaked silhouette */
+      if(bt>0.5&&bt<1.5){ float yh=(pos.y-gBCy)/gBSz;float fold=pow(0.5+0.5*sin(sx*1.6+sin(sy*0.12)*2.0),6.0);col=vec3(0.03,0.03,0.05)+pal(pos.y*0.3+uTime*0.05)*(0.12+0.55*fold)*(0.6+0.4*sin(sy*0.3+uTime*0.7));col=mix(col,vec3(0.85,0.82,0.78)*(0.7+0.3*sin(uTime*0.8)),smoothstep(0.55,0.62,yh)*(1.0-smoothstep(0.78,0.86,yh))*0.55);}   /* cloaked silhouette: folds catch light so the arms and hood read against the dark; the hood opening glows pale (the lost face/arm detail) */
       else if(bt>3.5&&bt<4.5){ col=vec3(0.01)+pal(uTime*0.05)*0.5*pow(0.5+0.5*sin(sy*0.9+uTime*2.0),12.0);}   /* black stick figure, bright outline flashes */
       else if(bt>2.5&&bt<3.5){ col=mix(pal(0.2+uTime*0.03+pos.x*0.05),vec3(1.0),0.45)*(0.8+0.2*sin(sx*0.7+uTime));}   /* translucent jelly */
       else if(bt>5.5&&bt<6.5){ vec2 sc=vec2(sy*0.5,sx*0.9);vec2 fr=abs(fract(sc)-0.5);float ln=smoothstep(0.38,0.5,max(fr.x,fr.y));col=mix(pal(floor(sc.x)*0.17+floor(sc.y)*0.31+0.1)*1.1,vec3(0.02),ln);}   /* scales: each a bright colour, black lines between */
@@ -2151,10 +2293,11 @@ vec3 world(vec2 p){
       else if(bt>8.5&&bt<9.5){ col=pal(0.6+pos.y*0.3+uTime*0.08)*(0.9+0.5*sin(sy*0.4-uTime*3.0));}   /* plasma, brightness running along the body */
       else if(bt>9.5&&bt<10.5){ col=mix(vec3(1.0,0.92,0.95),pal(pos.x*0.2+uTime*0.06),0.3)*(0.9+0.2*sin(sx*0.5-uTime));}   /* pale translucent plasma */
       else if(bt>10.5&&bt<11.5){ float g=0.5+0.5*sin(sy*0.9+pos.x*7.0);col=mix(vec3(0.25,0.27,0.3),vec3(1.0,1.0,1.05),smoothstep(0.35,0.7,g))*1.1+pal(0.6)*0.08;}   /* chrome: hard bright/dark reflection bands */
-      else if(bt>11.5&&bt<12.5){ col=mix(vec3(0.12,0.12,0.13),vec3(1.0,0.9,0.6),smoothstep(0.55,0.75,pos.y-uBOff.y));}   /* dark pole, lit head */
+      else if(bt>11.5&&bt<12.5){ col=mix(vec3(0.12,0.12,0.13),vec3(1.0,0.9,0.6),smoothstep(0.55,0.75,(pos.y-gBCy)/gBSz));}   /* dark pole, lit head */
       else if(bt>21.5&&bt<22.5){ col=mix(vec3(0.5,0.52,0.5),vec3(0.8,0.82,0.78),smoothstep(0.5,1.0,0.5+0.5*sin(sy*0.5)))*(0.95+0.1*sin(sx));}   /* pale grey skin */
       else if(bt>22.5&&bt<23.5){ col=mix(vec3(0.95,0.96,1.0),vec3(0.55,0.57,0.62),smoothstep(0.4,0.6,0.5+0.5*sin(sy*0.6+sx*0.2)))+0.05*sin(sx*3.0);}   /* white armour plates */
       else if(bt>23.5&&bt<24.5){ vec2 sc=vec2(sy*0.7,sx*1.1);vec2 fr=abs(fract(sc)-0.5);float ln=smoothstep(0.38,0.5,max(fr.x,fr.y));col=mix(mix(vec3(0.15,0.55,0.55),vec3(0.9,0.7,0.2),0.5+0.5*sin(sy*0.3)),vec3(0.02),ln)*1.05;}   /* teal and gold, scaled */
+      else if(bt>25.5&&bt<26.5){ float yy=(pos.y-gBCy)/gBSz*1.7;col=mix(vec3(0.95,0.12,0.1),vec3(0.95,0.9,0.8),smoothstep(0.12,0.2,yy))*(0.9+0.1*sin(sx*0.9));if(yy>0.2)col=mix(vec3(0.85,0.82,0.72),vec3(1.0,0.97,0.9),0.5+0.5*sin(sx*3.0));}   /* bright red tunic, pale hair and skin */
       else if(bt>24.5&&bt<25.5){ col=pal(uTime*0.3+pos.y*0.5)*(1.8+0.8*sin(uTime*6.0))+vec3(0.6);}   /* bright pulsing light */
       else if(bt>20.5&&bt<21.5){ col=mix(vec3(0.42,0.44,0.46),vec3(0.82,0.84,0.88),smoothstep(0.55,0.95,0.5+0.5*sin(sy*0.5+sx*0.3)))*(0.9+0.15*sin(sx*0.7+uTime*0.5));}   /* grey suit, pale highlights */
       else if(bt>16.5&&bt<17.5){ float sp=hash31(floor(pos*45.0));col=mix(vec3(0.33,0.31,0.3),vec3(0.62,0.6,0.56),sp)*(0.8+0.3*sin(sy*0.3))+vec3(0.9,0.85,0.7)*step(0.985,sp)*0.8;}   /* granite: speckled grey */
@@ -3601,7 +3744,7 @@ const GEN=(function(){
     hueJit:0.06,                  /* guess: hue shift applied to every palette */
     fear:0.07,                    /* share of runs that turn menacing (reports of fear are a minority) */
     time:{plain:45,freeze:30,rush:25,loop:0},   /* freeze: slowed time is reported; rush: great speed is reported; loop (time repeating) has no report, so it is off. Proportions are guesses */
-    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2,exam:3,cave:3,garden:3,temple:4,ocean:3,desert:3,maze:3,crystal:3,mountain:2,forest:3,ship:3,castle:3,babylon:2,church:2,stairs:2,dna:2},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
+    place:{hyper:19,fractal:6,tunnel:18,hall:14,void:14,cosmos:8,dome:12,cath:8,carn:5,wire:3,checker:3,white:5,home:4,pyr:4,city:3,dayglo:3,pastel:2,lift:3,lego:3,gel:3,hive:3,code:2,exam:3,cave:3,garden:3,temple:4,ocean:3,desert:3,maze:3,crystal:3,mountain:2,forest:3,ship:3,castle:3,babylon:2,church:2,stairs:2,dna:2,orchard:2,parking:2,organic:2,taj:2,micro:2,rosecath:2},   /* from the place counts: hyperspace/other dimension 25 and 17, tunnel 10 to 40, room 15 to 42 (split into wireframe, checkered, white, domestic), void 6 to 27, cosmos 18, dome 12, cathedral 80 posts, carnival 1.4, pyramid 1.2 */
     leadKeep:0.7,                 /* share of scenes that keep the run's lead hues (reports: one or two lead hues per trip) */
     eyes:0.18,                    /* share of scenes whose walls are covered in eyes: guess (faces or eyes 2.4% of 3,778 reports; eyes in about 7 of 16 drawings; several first-hand reports of a dome or tunnel of eyes) */
     trans:{morph:26,cut:20,peel:20,door:10,curtain:6,slice:6,zoom:4,wipe:2,rift:4},   /* wiki, How scenes change: melt/dissolve/ooze 33 reports, abrupt 18 vs gradual 15, folding/peeling/layers 27, something opens 12, break apart 31, zoom into structure 6-7, wipe and slice 1 each */
@@ -3649,12 +3792,12 @@ const GEN=(function(){
     const dh=(r()*2-1)*P.hueJit;
     return{name:PALS[idx].n,stops:PALS[idx].s.map(c=>{const[h,s,v]=rgb2hsv(c);return hsv2rgb([(h+dh+1)%1,s,v]);})};
   }
-  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7,exam:7,cave:7,garden:8,temple:8,ocean:8,desert:8,maze:7,crystal:8,mountain:8,forest:8,ship:7,castle:8,babylon:8,church:6,stairs:7,dna:4};
-  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7,exam:8,cave:9,maze:10,ship:11,stairs:12};
+  const PLACES={hyper:9,fractal:0,tunnel:4,hall:1,void:2,cosmos:2,dome:3,cath:6,carn:5,wire:7,checker:7,white:7,home:7,pyr:8,city:8,dayglo:8,lift:7,lego:7,gel:2,pastel:2,wait:7,hive:7,code:7,exam:7,cave:7,garden:8,temple:8,ocean:8,desert:8,maze:7,crystal:8,mountain:8,forest:8,ship:7,castle:8,babylon:8,church:6,stairs:7,dna:4,orchard:8,parking:7,organic:7,taj:8,micro:8,rosecath:6};
+  const MODE={wire:0,checker:1,white:2,home:3,lift:4,lego:5,wait:1,hive:6,code:7,exam:8,cave:9,maze:10,ship:11,stairs:12,parking:13,organic:14};
   const TK={cut:0,morph:1,door:2,wipe:3,slice:4,zoom:5,peel:6,curtain:7,rift:8};
   const TDUR={morph:[5,9],door:[2,3.2],wipe:[1.4,2.2],slice:[1,1.6],zoom:[1.6,2.4],peel:[2,3],curtain:[1.8,2.8],rift:[1.6,2.4]};
   /* which kinds of being go with which place (single reports, not counts): 0 shell, 1 humanoid, 2 many eyes, 3 blob, 4 tall slender, 5 swarm */
-  const PAIR={exam:{21:6,1:1,13:0.5,10:0.5},wait:{1:3,4:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},hyper:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},fractal:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},tunnel:{1:3,2:2,3:1,4:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},hall:{1:3,4:2,2:1,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},void:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},cosmos:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},dome:{1:3,4:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},cath:{4:3,1:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},carn:{1:5,5:2,3:1,6:1.2,7:2.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:2,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},wire:{0:3,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},checker:{1:2,4:2,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},white:{4:3,2:2,0:1,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},home:{3:3,1:2,5:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},pyr:{1:5,4:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},lift:{3:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},lego:{1:2,5:2,3:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4},gel:{3:3,1:1,0:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4}};
+  const PAIR={exam:{21:6,1:1,13:0.5,10:0.5},rosecath:{10:6,13:1.5,1:1,25:1},wait:{1:3,4:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},hyper:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},fractal:{0:2,1:1,2:3,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},tunnel:{1:3,2:2,3:1,4:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},hall:{1:3,4:2,2:1,3:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},void:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},cosmos:{0:2,3:3,5:2,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},dome:{1:3,4:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},cath:{4:3,1:3,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},carn:{1:5,5:2,3:1,6:1.2,7:2.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:2,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},wire:{0:3,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},checker:{1:2,4:2,2:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},white:{4:3,2:2,0:1,1:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},home:{3:3,1:2,5:2,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},pyr:{1:5,4:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:2.0,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},lift:{3:2,2:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},lego:{1:2,5:2,3:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3},gel:{3:3,1:1,0:1,6:1.2,7:0.5,8:0.4,9:0.4,10:1.0,11:0.35,12:0.3,13:0.6,14:0.5,15:0.2,16:0.7,17:0.25,18:0.4,19:0.4,20:0.2,22:0.4,23:0.3,24:0.3,25:0.4,26:0.35,27:0.3}};
   function pair(name,key){const r=mulberry((Math.imul(key|0,2654435761)+7)>>>0);return +wpick(r,PAIR[name]||{1:1});}
   function scene(run,idx){
     const sd=(Math.imul(run.seed|0,0x9E3779B1)+Math.imul(idx+1,40503)+7)>>>0;
@@ -3674,6 +3817,7 @@ const GEN=(function(){
     else if(name==='void'||name==='cosmos'){const cs=name==='cosmos';w.FP=[R(2,3.5),R(.18,.45),R(.5,1),cs?1:0];w.FQ=[0,0,0.055,0];w.vd=cs?1:0;w.glow=0.8;w.bp=[4,1.2,1,0];}
     else if(name==='dome'){w.FP=[R(5,7),pk([8,12,16]),pk([4,6]),R(.25,.6)];w.FQ=[0,0.5,0.04,0];w.bp=[3.5,1.0,0.9,-0.5];}
     else if(name==='church'){w.FP=[R(1.8,2.4),R(1.0,1.4),R(3.4,4.2),0];w.FQ=[1,1.2,0.035,0];w.bp=[3.6,0.8,1.4,-0.2];}
+    else if(name==='rosecath'){w.FP=[R(2.2,3.0),R(1.2,1.8),R(3.2,4.4),0];w.FQ=[0,1.2,0.035,0];w.bp=[3.6,0.8,1.4,-0.2];}
     else if(name==='cath'){w.FP=[R(2.2,3.0),R(1.2,1.8),R(3.2,4.4),0];w.FQ=[0,1.2,0.035,0];w.bp=[3.6,0.8,1.4,-0.2];}
     else if(name==='carn'){w.FP=[R(2.2,3.0),0,R(4.5,6.5),0];w.FQ=[0,0.4,0.03,0];w.bp=[3.5,1.2,1,0];}
     else if(name==='gel'){w.FP=[3,0.5,0.8,2];w.FQ=[0,0.8,0.045,0];w.glow=0.6;w.bp=[3.5,1.0,1.0,0];}
@@ -3682,6 +3826,9 @@ const GEN=(function(){
     else if(name==='dayglo'){w.FP=[R(5,7),3,R(5,7),R(.8,1.2)];w.FQ=[2,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='city'){w.FP=[R(1.4,2.0),3,R(5,7),R(.5,.9)];w.FQ=[1,0.25,0.035,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='mountain'){w.FP=[R(1.0,1.4),3,R(7,9),R(.7,1.1)];w.FQ=[8,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='micro'){w.FP=[R(1.2,1.6),3,R(5,6.5),R(.6,.9)];w.FQ=[14,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='taj'){w.FP=[R(1.2,1.6),3,R(8,9.5),R(.6,.9)];w.FQ=[13,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
+    else if(name==='orchard'){w.FP=[R(1.2,1.6),3,R(3.6,4.6),R(.7,1.0)];w.FQ=[12,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='babylon'){w.FP=[R(1.2,1.6),3,R(8,9.5),R(.6,.9)];w.FQ=[11,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='castle'){w.FP=[R(1.2,1.6),3,R(8,9.5),R(.7,1.0)];w.FQ=[10,0.25,0.03,0];w.bp=[4.5,1.2,1.1,0];}
     else if(name==='forest'){w.FP=[R(1.2,1.6),3,R(2.2,3.0),R(.6,.9)];w.FQ=[9,0.25,0.04,0];w.bp=[4.5,1.2,1.1,0];}
@@ -3701,7 +3848,8 @@ const GEN=(function(){
       w.bend=bk==='curve'?[sg*RR(2,5),0,0]:bk==='wave'?[sg*RR(2,4),RR(1,2.5),0]:bk==='climb'?[0,0,sg*RR(.12,.3)]:bk==='chute'?[sg*RR(3,6),RR(2,4),sg*RR(.1,.2)]:[0,0,0];
     }
     const prog=Math.min(1,idx*41/run.peakSec);
-    const pal=name==='dna'?{name:'DNA tunnel',stops:[[.3,.9,1],[.05,.1,.3],[1,.4,.8],[.1,.3,.5]]}:name==='stairs'?{name:'stair hall',stops:[[.9,.85,.7],[.25,.2,.3],[1,.7,.3],[.4,.35,.4]]}:name==='church'?{name:'stained-glass church',stops:[[1,.75,.3],[.5,.12,.2],[.3,.5,1],[.45,.3,.2]]}:name==='babylon'?{name:'garden palace',stops:[[1,.8,.35],[.1,.5,.55],[.4,1,.7],[.15,.55,.25]]}:name==='castle'?{name:'neon lace castle',stops:[[1,.4,.8],[.2,.1,.5],[1,.9,.5],[.2,.15,.45]]}:name==='ship'?{name:'ship deck',stops:[[.6,.7,.8],[.1,.12,.18],[.4,.8,1],[.25,.3,.4]]}:name==='mountain'?{name:'high peaks',stops:[[.85,.9,1],[.25,.2,.45],[1,.7,.4],[.4,.5,.75]]}:name==='forest'?{name:'forest',stops:[[.2,.6,.3],[.03,.15,.1],[1,.9,.4],[.1,.4,.45]]}:name==='crystal'?{name:'crystal',stops:[[.6,.85,1],[.35,.2,.7],[1,1,1],[.3,.7,.9]]}:name==='desert'?{name:'desert',stops:[[1,.55,.2],[.35,.12,.2],[1,.85,.5],[.55,.3,.45]]}:name==='temple'?{name:'temple stone',stops:[[1,.8,.4],[.45,.3,.2],[1,.9,.6],[.7,.55,.4]]}:name==='ocean'?{name:'deep sea',stops:[[.2,.6,.9],[.02,.1,.25],[.9,1,1],[.05,.25,.45]]}:name==='exam'?{name:'clinical white',stops:[[.9,.95,1],[.25,.45,.5],[1,1,1],[.35,.62,.68]]}:name==='cave'?{name:'womb red',stops:[[.5,.05,.1],[.15,.02,.08],[1,.5,.3],[.3,.1,.5]]}:name==='garden'?{name:'garden',stops:[[.95,.85,.4],[.4,.8,1],[1,.5,.7],[.25,.7,.3]]}:name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
+    if(PLACES[name]===7&&r()<0.3)w.FQ[3]=2;   /* some rooms: beings forming the room's surfaces */
+    const pal=name==='rosecath'?{name:'pink and gold cathedral',stops:[[1,.55,.75],[.5,.2,.35],[1,.85,.4],[.7,.45,.5]]}:name==='micro'?{name:'microscopic',stops:[[.4,1,.7],[.05,.12,.25],[1,.8,.4],[.1,.2,.4]]}:name==='taj'?{name:'white marble dome',stops:[[1,.97,.92],[.45,.4,.6],[1,.8,.5],[.3,.5,.7]]}:name==='organic'?{name:'organic apartment',stops:[[1,.45,.6],[.9,.3,.1],[1,.9,.3],[.95,.55,.4]]}:name==='parking'?{name:'parking tower',stops:[[.2,1,.8],[.02,.1,.12],[.5,1,1],[.05,.2,.25]]}:name==='orchard'?{name:'orchard',stops:[[1,.3,.2],[.05,.2,.1],[1,.8,.2],[.15,.5,.2]]}:name==='dna'?{name:'DNA tunnel',stops:[[.3,.9,1],[.05,.1,.3],[1,.4,.8],[.1,.3,.5]]}:name==='stairs'?{name:'stair hall',stops:[[.9,.85,.7],[.25,.2,.3],[1,.7,.3],[.4,.35,.4]]}:name==='church'?{name:'stained-glass church',stops:[[1,.75,.3],[.5,.12,.2],[.3,.5,1],[.45,.3,.2]]}:name==='babylon'?{name:'garden palace',stops:[[1,.8,.35],[.1,.5,.55],[.4,1,.7],[.15,.55,.25]]}:name==='castle'?{name:'neon lace castle',stops:[[1,.4,.8],[.2,.1,.5],[1,.9,.5],[.2,.15,.45]]}:name==='ship'?{name:'ship deck',stops:[[.6,.7,.8],[.1,.12,.18],[.4,.8,1],[.25,.3,.4]]}:name==='mountain'?{name:'high peaks',stops:[[.85,.9,1],[.25,.2,.45],[1,.7,.4],[.4,.5,.75]]}:name==='forest'?{name:'forest',stops:[[.2,.6,.3],[.03,.15,.1],[1,.9,.4],[.1,.4,.45]]}:name==='crystal'?{name:'crystal',stops:[[.6,.85,1],[.35,.2,.7],[1,1,1],[.3,.7,.9]]}:name==='desert'?{name:'desert',stops:[[1,.55,.2],[.35,.12,.2],[1,.85,.5],[.55,.3,.45]]}:name==='temple'?{name:'temple stone',stops:[[1,.8,.4],[.45,.3,.2],[1,.9,.6],[.7,.55,.4]]}:name==='ocean'?{name:'deep sea',stops:[[.2,.6,.9],[.02,.1,.25],[.9,1,1],[.05,.25,.45]]}:name==='exam'?{name:'clinical white',stops:[[.9,.95,1],[.25,.45,.5],[1,1,1],[.35,.62,.68]]}:name==='cave'?{name:'womb red',stops:[[.5,.05,.1],[.15,.02,.08],[1,.5,.3],[.3,.1,.5]]}:name==='garden'?{name:'garden',stops:[[.95,.85,.4],[.4,.8,1],[1,.5,.7],[.25,.7,.3]]}:name==='dayglo'?{name:'day-glo',stops:[[1,.2,.6],[1,.5,.1],[1,.9,.1],[.2,1,.5]]}:name==='code'?{name:'neon green code',stops:[[.02,.03,.02],[.12,1,.28],[.6,1,.7],[.01,.08,.03]]}:name==='wait'?{name:'waiting room',stops:[[.45,.1,.8],[.03,.02,.06],[.95,.95,1],[.1,.4,1]]}:(idx>0&&r()>P.leadKeep)?pickPal(r,run.fear&&idx>0,prog):run.lead;
     w.palA=pal.stops[0];w.palB=pal.stops[1];w.palC=pal.stops[2];w.palD=pal.stops[3];w.palName=pal.name;
     w.speed=R(P.speed[0],P.speed[1]);w.sd=R(P.sparkD[0],P.sparkD[1]);w.sr=R(P.sparkR[0],P.sparkR[1]);
     w.mist=r()<0.2?R(0.6,1):0;   /* guess: 20% of scenes; notes: a mist rises around the viewer as colours shift (149); fog/mist/smoke words in 31 reports */
@@ -5326,6 +5474,7 @@ function draw(dt){
     u.uBOff.value.set((dd_===2?-em:dd_===3?em:0)+ob*1.3*Math.sin(plateauT*0.45),(dd_===0?-em:dd_===1?em:0),(apT==='rush'?(1-pg)*16:0)+ob*1.3*(Math.cos(plateauT*0.45)-1)); }
   bMorph+=((bShown&&bShown.shift?1:0)-bMorph)*(1-Math.exp(-dt*0.4));u.uBM.value=bMorph;bSpeak+=((bShown&&bShown.speak?1:0)-bSpeak)*(1-Math.exp(-dt*0.5));u.uBS.value=bSpeak;u.uBW.value=(ep&&ep.wave)?sm((plateauT-(ep.t1-6))/1.5)*(1-sm((plateauT-(ep.t1-0.5))/0.5)):0;   /* wiki, Leaving: five of seven had a farewell or guided exit (a wave, a handshake, an ushering gesture) */
   u.uPres.value=(apT==='rush'?Math.min(1,pres*3):pres)*brk*0.85;u.uPulse.value=pulse;
+  if(bShown&&u.uBType.value>18.5&&u.uBType.value<19.5&&brk>0.9&&Math.random()<dt*2.2)Snd.tinkleBeing();   /* skull clowns tinkle */
   u.uBType.value=bShown?(bShown.fixed?bShown.type:GEN.pair(((tr&&tr.t/tr.dur>0.5)?wb:wa).name,Math.floor((bShown.t0||0)*10))):0;u.uBN.value=bShown?bShown.n:0;
   lookYaw+=(tYaw-lookYaw)*(1-Math.exp(-dt*12));lookPitch+=(tPitch-lookPitch)*(1-Math.exp(-dt*12));
   u.uYaw.value=lookYaw+pivA;u.uPitch.value=lookPitch;u.uY.value=yS;u.uRoll.value=rollA;
